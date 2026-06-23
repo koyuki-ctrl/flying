@@ -24,15 +24,14 @@
 
 - [*] **4. Classe `Hub`** — attributs : `name`, `x`, `y`, `zone_type`, `color`, `max_drones`, `neighbors`
 - [*] **5. Classe `Connection`** — attributs : `source`, `target`, `capacity`
-- [*] **6. Classe `Drone`** — attributs : `id`, `current_hub`, `path`, `state`, `remaining_turns`
+- [?] **6. Classe `Drone`** — attributs : `id`, `current_hub`, `path`, `state`, `remaining_turns`
 - [*] **7. Classe `Graph`** — contient : `hubs`, `connections`, `start`, `end`, `nb_drones`
 
 ---
 
 ## Phase 3 — Parser
-
-- [ ] **8. Lire le fichier ligne par ligne** — gérer lignes vides et commentaires `#`
-- [ ] **9. Parser `nb_drones`** — vérifier : présent, entier positif
+- [*] **8. Lire le fichier ligne par ligne** — gérer lignes vides et commentaires `#`
+- [*] **9. Parser `nb_drones`** — vérifier : présent, entier positif
 - [ ] **10. Parser `start_hub`** — vérifier : unique, nom valide, coordonnées valides
 - [ ] **11. Parser `end_hub`** — même logique que `start_hub`
 - [ ] **12. Parser les hubs** — `hub: roof1 3 4 [zone=restricted color=red]` → nom, x, y, metadata
