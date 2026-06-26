@@ -3,6 +3,7 @@ from pathlib import Path
 from abc import ABC, abstractmethod
 from typing import Any, Tuple, List, Union
 from enum import Enum
+import re
 
 
 class InvalidArgument(Exception):
@@ -168,17 +169,15 @@ class Connection_parser(Parser):
                 if line.startswith("connection"):
                     parts = line.split(":", 1)
                     if len(parts) != 2:
-                        raise ErrorParser(
-                            "Parsing connection error'")
+                        raise ErrorParser("Parsing connection error")
 
                     conn_value = parts[1].strip()
+                    conn_value = re.sub(r"\[.*?\]", "", conn_value).strip()
 
                     if "-" not in conn_value:
                         raise ErrorParser(f"Invalid Connection: {conn_value}")
 
-                    hub_names = conn_value.split("-", 1)
-                    hub1 = hub_names[0].strip()
-                    hub2 = hub_names[1].strip()
+                    hub1, hub2 = map(str.strip, conn_value.split("-", 1))
 
                     if not hub1 or not hub2:
                         raise ErrorParser(
