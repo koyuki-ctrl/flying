@@ -1,5 +1,8 @@
+from src.parse import parse_file
+
+
 def main() -> None:
-    pass
+    parse_file()
 
 
 if __name__ == "__main__":
