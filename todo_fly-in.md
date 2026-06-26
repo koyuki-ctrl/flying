@@ -39,12 +39,12 @@
 - [*] **14. Parser les connexions** — `connection: A-B`
 - [*] **15. Parser les metadata de connexion** — `connection: A-B [max_link_capacity=2]`
 - [ ] **16. Vérifications obligatoires** *(insisté dans le sujet)* :
-  - [ ] Pas de doublon hub / connexion
-  - [ ] Hubs référencés existants
-  - [ ] Types valides
-  - [ ] Capacités positives
+  - [*] Pas de doublon hub / connexion
+  - [*] Hubs référencés existants
+  - [*] Types valides
+  - [*] Capacités positives
   - [ ] `start` et `end` uniques
-- [ ] **17. Gérer les erreurs proprement** — créer `exceptions.py` avec `class ParserError(Exception)`
+- [*] **17. Gérer les erreurs proprement** — créer `exceptions.py` avec `class ParserError(Exception)`
 
 ---
 

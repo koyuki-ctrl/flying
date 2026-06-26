@@ -81,6 +81,9 @@ class Hub_parser(Parser):
             raise ErrorParser("Hub parsing error")
 
         hub = []
+        seen_hubs = set()
+        has_start_hub = False
+        has_end_hub = False
 
         with open(self.argument, "r") as file:
             for line in file:
@@ -103,6 +106,21 @@ class Hub_parser(Parser):
                         hub_type = HubType(parts[0])
                     except ValueError:
                         raise ErrorParser("Type de hub invalide.")
+                    if hub_type == HubType.START_HUB:
+                        if has_start_hub:
+                            raise ErrorParser(
+                                "Duplicate start_hub: " +
+                                "only one start_hub is allowed"
+                            )
+                        has_start_hub = True
+
+                    if hub_type == HubType.END_HUB:
+                        if has_end_hub:
+                            raise ErrorParser(
+                                "Duplicate end_hub: " +
+                                "only one end_hub is allowed"
+                            )
+                        has_end_hub = True
 
                     name = hub_values[0]
                     x = int(hub_values[1])
@@ -144,6 +162,17 @@ class Hub_parser(Parser):
 
                         attributes[option] = value
 
+                    hub_key = (hub_type, name, x, y, tuple(sorted(
+                        (
+                            (opt.value, str(val))
+                            for opt, val in attributes.items()
+                        )
+                    )))
+
+                    if hub_key in seen_hubs:
+                        raise ErrorParser(f"Duplicate hub detected: {name}")
+
+                    seen_hubs.add(hub_key)
                     hub.append((hub_type, name, x, y, attributes))
 
         if not hub:
@@ -161,6 +190,7 @@ class Connection_parser(Parser):
             raise ErrorParser("Connection parsing error")
 
         connections = []
+        seen_connections = set()
 
         with open(self.argument, "r") as file:
             for line in file:
@@ -184,6 +214,14 @@ class Connection_parser(Parser):
                             "Invalid connection: Hub name not found"
                         )
 
+                    conn_key = tuple(sorted([hub1, hub2]))
+
+                    if conn_key in seen_connections:
+                        raise ErrorParser(
+                            f"Duplicate connection detected: {hub1}-{hub2}"
+                        )
+
+                    seen_connections.add(conn_key)
                     connections.append((hub1, hub2))
 
         if not connections:
