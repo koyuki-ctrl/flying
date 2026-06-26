@@ -37,7 +37,7 @@
 - [*] **12. Parser les hubs** — `hub: roof1 3 4 [zone=restricted color=red]` → nom, x, y, metadata
 - [*] **13. Parser les metadata** — zones : `normal`, `restricted`, `priority`, `blocked` / champs : `zone`, `color`, `max_drones`
 - [*] **14. Parser les connexions** — `connection: A-B`
-- [ ] **15. Parser les metadata de connexion** — `connection: A-B [max_link_capacity=2]`
+- [*] **15. Parser les metadata de connexion** — `connection: A-B [max_link_capacity=2]`
 - [ ] **16. Vérifications obligatoires** *(insisté dans le sujet)* :
   - [ ] Pas de doublon hub / connexion
   - [ ] Hubs référencés existants
