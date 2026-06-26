@@ -32,11 +32,11 @@
 ## Phase 3 — Parser
 - [*] **8. Lire le fichier ligne par ligne** — gérer lignes vides et commentaires `#`
 - [*] **9. Parser `nb_drones`** — vérifier : présent, entier positif
-- [ ] **10. Parser `start_hub`** — vérifier : unique, nom valide, coordonnées valides
-- [ ] **11. Parser `end_hub`** — même logique que `start_hub`
-- [ ] **12. Parser les hubs** — `hub: roof1 3 4 [zone=restricted color=red]` → nom, x, y, metadata
-- [ ] **13. Parser les metadata** — zones : `normal`, `restricted`, `priority`, `blocked` / champs : `zone`, `color`, `max_drones`
-- [ ] **14. Parser les connexions** — `connection: A-B`
+- [*] **10. Parser `start_hub`** — vérifier : unique, nom valide, coordonnées valides
+- [*] **11. Parser `end_hub`** — même logique que `start_hub`
+- [*] **12. Parser les hubs** — `hub: roof1 3 4 [zone=restricted color=red]` → nom, x, y, metadata
+- [*] **13. Parser les metadata** — zones : `normal`, `restricted`, `priority`, `blocked` / champs : `zone`, `color`, `max_drones`
+- [*] **14. Parser les connexions** — `connection: A-B`
 - [ ] **15. Parser les metadata de connexion** — `connection: A-B [max_link_capacity=2]`
 - [ ] **16. Vérifications obligatoires** *(insisté dans le sujet)* :
   - [ ] Pas de doublon hub / connexion

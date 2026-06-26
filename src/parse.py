@@ -1,19 +1,18 @@
 import sys
 from pathlib import Path
 from abc import ABC, abstractmethod
-from typing import Any, Tuple, List
+from typing import Any, Tuple, List, Union
+from enum import Enum
 
 
 class InvalidArgument(Exception):
     def __init__(self, message):
-        self.message = message
-        super().__init__(self.message)
+        super().__init__(message)
 
 
 class ErrorParser(Exception):
     def __init__(self, message):
-        self.message = message
-        super().__init__(self.message)
+        super().__init__(message)
 
 
 class Parser(ABC):
@@ -28,82 +27,186 @@ class Parser(ABC):
         return isinstance(self.argument, str)
 
 
+class HubType(Enum):
+    START_HUB = "start_hub"
+    HUB = "hub"
+    END_HUB = "end_hub"
+
+
+class HubOption(Enum):
+    COLOR = "color"
+    ZONE = "zone"
+    MAX_DRONES = "max_drones"
+
+
+HubValue = Union[str, int]
+
+
 class Drone_parser(Parser):
     def __init__(self, argument):
-        self.nbr_drone = 0
         super().__init__(argument)
 
     def type_parser(self) -> int:
-        if self.verify_parse():
-            with open(self.argument, "r") as file:
-                for line in file:
-                    line = (line.strip()).lower()
-                    if line.startswith("nb_drones"):
-                        list_line = line.split(":")
-                        try:
-                            if len(list_line) == 2:
-                                nb_drone: int = int(list_line[1])
-                            else:
-                                raise ErrorParser(
-                                    "Parsing error: one value is required"
-                                )
-                        except ValueError as value_error:
-                            print(value_error)
-                        except ErrorParser as droneError:
-                            print(droneError)
-                        except Exception as exception:
-                            print(exception)
-            return nb_drone
-        else:
+        if not self.verify_parse():
             raise ErrorParser("Drone parsing error")
+
+        nb_drone: int = 0
+
+        with open(self.argument, "r") as file:
+            for line in file:
+                line = line.strip().lower()
+
+                if line.startswith("nb_drones"):
+                    parts = line.split(":")
+                    if len(parts) != 2:
+                        raise ErrorParser(
+                            "Parsing error: one value is required"
+                        )
+
+                    try:
+                        nb_drone = int(parts[1].strip())
+                    except ValueError:
+                        raise ErrorParser("nb_drones doit être un entier")
+
+        return nb_drone
 
 
 class Hub_parser(Parser):
     def __init__(self, argument):
         super().__init__(argument)
 
-    def type_parser(self) -> List[Tuple[str, str, int, int, str]]:
+    def type_parser(self) -> List[Tuple[HubType, str, int, int, dict]]:
         if not self.verify_parse():
             raise ErrorParser("Hub parsing error")
 
-        hub: List[Tuple[str, str, int, int, str]] = []
+        hub = []
 
-        with open(self.argument, 'r') as file:
+        with open(self.argument, "r") as file:
             for line in file:
-                line = (line.strip()).lower()
+                line = line.strip().lower()
+
                 if (
-                    line.startswith("start_hub") or
-                    line.startswith('hub') or
-                    line.startswith('end_hub')
+                    line.startswith(HubType.START_HUB.value)
+                    or line.startswith(HubType.HUB.value)
+                    or line.startswith(HubType.END_HUB.value)
                 ):
-                    list_line = line.split(":")
-                    if len(list_line) != 2:
+                    parts = line.split(":")
+                    if len(parts) != 2:
                         raise ErrorParser("Ligne hub Error.")
-                    hub_values = (list_line[1].strip()).split(' ')
+
+                    hub_values = parts[1].strip().split(" ", 3)
                     if len(hub_values) != 4:
                         raise ErrorParser("Ligne hub Error.")
-                    hub_type: str = list_line[0]
-                    name: str = hub_values[0]
+
+                    try:
+                        hub_type = HubType(parts[0])
+                    except ValueError:
+                        raise ErrorParser("Type de hub invalide.")
+
+                    name = hub_values[0]
                     x = int(hub_values[1])
                     y = int(hub_values[2])
-                    color_dict: list[str] = hub_values[3].split('=')
-                    color: str = color_dict[1].replace("]", "")
-                    hub.append((hub_type, name, x, y, color))
-        if hub is None:
+
+                    options = hub_values[3]
+
+                    if not (options.startswith("[") and options.endswith("]")):
+                        raise ErrorParser("Options hub invalides.")
+
+                    options = options[1:-1]
+
+                    attributes: dict[HubOption, HubValue] = {
+                        HubOption.COLOR: "none",
+                        HubOption.ZONE: "normal",
+                        HubOption.MAX_DRONES: 1
+                    }
+
+                    for item in options.split():
+                        if "=" not in item:
+                            raise ErrorParser(" invalid attribut hub.")
+
+                        key, raw_value = item.split("=", 1)
+
+                        try:
+                            option = HubOption(key)
+                        except ValueError:
+                            raise ErrorParser(f"Unknown hub option : {key}")
+
+                        if option == HubOption.MAX_DRONES:
+                            try:
+                                value: HubValue = int(raw_value)
+                            except ValueError:
+                                raise ErrorParser(
+                                    "max_drones could be int."
+                                )
+                        else:
+                            value = raw_value
+
+                        attributes[option] = value
+
+                    hub.append((hub_type, name, x, y, attributes))
+
+        if not hub:
             raise ErrorParser("No Hub found in file")
+
         return hub
 
 
-def parse_file() -> None:
-    if len(sys.argv) == 2:
-        argument = sys.argv[1]
-        if Path(argument).exists():
-            nbr_drone: int = Drone_parser(argument).type_parser()
-            print(nbr_drone)
-            hubs = Hub_parser(argument).type_parser()
-            print(hubs)
+class Connection_parser(Parser):
+    def __init__(self, argument):
+        super().__init__(argument)
 
-        else:
-            raise FileExistsError(f"file {argument} does not exist")
-    else:
+    def type_parser(self) -> List[Tuple[str, str]]:
+        if not self.verify_parse():
+            raise ErrorParser("Connection parsing error")
+
+        connections = []
+
+        with open(self.argument, "r") as file:
+            for line in file:
+                line = line.strip().lower()
+
+                if line.startswith("connection"):
+                    parts = line.split(":", 1)
+                    if len(parts) != 2:
+                        raise ErrorParser(
+                            "Parsing connection error'")
+
+                    conn_value = parts[1].strip()
+
+                    if "-" not in conn_value:
+                        raise ErrorParser(f"Invalid Connection: {conn_value}")
+
+                    hub_names = conn_value.split("-", 1)
+                    hub1 = hub_names[0].strip()
+                    hub2 = hub_names[1].strip()
+
+                    if not hub1 or not hub2:
+                        raise ErrorParser(
+                            "Invalid connection: Hub name not found"
+                        )
+
+                    connections.append((hub1, hub2))
+
+        if not connections:
+            raise ErrorParser("No connection found in file")
+
+        return connections
+
+
+def parse_file() -> None:
+    if len(sys.argv) != 2:
         raise InvalidArgument(f"Argument invalid: {sys.argv[0]} <path map>")
+
+    argument = sys.argv[1]
+
+    if not Path(argument).exists():
+        raise FileExistsError(f"file {argument} does not exist")
+
+    nbr_drone = Drone_parser(argument).type_parser()
+    print(nbr_drone)
+
+    hubs = Hub_parser(argument).type_parser()
+    print(hubs)
+
+    connection = Connection_parser(argument).type_parser()
+    print(connection)
