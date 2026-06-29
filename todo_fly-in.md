@@ -43,7 +43,7 @@
   - [*] Hubs référencés existants
   - [*] Types valides
   - [*] Capacités positives
-  - [ ] `start` et `end` uniques
+  - [*] `start` et `end` uniques
 - [*] **17. Gérer les erreurs proprement** — créer `exceptions.py` avec `class ParserError(Exception)`
 
 ---
