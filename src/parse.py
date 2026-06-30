@@ -1,14 +1,7 @@
-import sys
-from pathlib import Path
 from abc import ABC, abstractmethod
 from typing import TypedDict, Tuple, List, Union, Any, TypeAlias, Dict
 from enum import Enum
 import re
-
-
-class InvalidArgument(Exception):
-    def __init__(self, message: Any) -> None:
-        super().__init__(message)
 
 
 class ErrorParser(Exception):
@@ -236,31 +229,3 @@ class Connection_parser(Parser):
             raise ErrorParser("No connection found in file")
 
         return connections
-
-
-def parse_file() -> ParseFile:
-    if len(sys.argv) != 2:
-        raise InvalidArgument(f"Argument invalid: {sys.argv[0]} <path map>")
-
-    argument: str = sys.argv[1]
-
-    if not Path(argument).exists():
-        raise FileExistsError(f"file {argument} does not exist")
-
-    nbr_drone: int = Drone_parser(argument).type_parser()
-
-    hubs: Hub_parser = Hub_parser(argument)
-    hub: (
-        List[Tuple[HubType, str, int, int, Dict[HubOption, HubValue]]]
-        ) = hubs.type_parser()
-
-    connections: Connection_parser = Connection_parser(argument)
-    connection: List[Tuple[str, str]] = connections.type_parser()
-
-    file_parser: ParseFile = {
-        "nbr_drone": nbr_drone,
-        'hub': hub,
-        "connection": connection
-        }
-
-    return file_parser

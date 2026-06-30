@@ -1,5 +1,10 @@
+from src.window import Window
+
+
 def main() -> None:
-    pass
+    window: Window = Window(1200, 800, "Fly-ing")
+    window.draw()
+    window.run()
 
 
 if __name__ == "__main__":
@@ -11,3 +16,5 @@ if __name__ == "__main__":
         print(e)
     except KeyboardInterrupt as keyboard:
         print(keyboard)
+    except EOFError as eof:
+        print(eof)

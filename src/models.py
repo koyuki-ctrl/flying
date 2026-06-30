@@ -5,7 +5,7 @@ from typing import List, Tuple, Optional
 
 class ZoneType(Enum):
     NORMAL = 'normal'
-    RESTRICED = 'restricted'
+    RESTRICTED = 'restricted'
     PRIORITY = 'priority'
     BLOCKED = 'blocked'
 
