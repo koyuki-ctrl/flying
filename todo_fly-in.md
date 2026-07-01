@@ -24,7 +24,7 @@
 
 - [*] **4. Classe `Hub`** — attributs : `name`, `x`, `y`, `zone_type`, `color`, `max_drones`, `neighbors`
 - [*] **5. Classe `Connection`** — attributs : `source`, `target`, `capacity`
-- [?] **6. Classe `Drone`** — attributs : `id`, `current_hub`, `path`, `state`, `remaining_turns`
+- [*] **6. Classe `Drone`** — attributs : `id`, `current_hub`, `path`, `state`, `remaining_turns`
 - [*] **7. Classe `Graph`** — contient : `hubs`, `connections`, `start`, `end`, `nb_drones`
 
 ---
@@ -50,8 +50,8 @@
 
 ## Phase 4 — Construction du graphe
 
-- [ ] **18. Ajouter les voisins automatiquement** — connexion `A-B` → A connaît B et B connaît A
-- [ ] **19. Tester le graphe** — afficher hubs, voisins, connexions via `print(graph)`
+- [*] **18. Ajouter les voisins automatiquement** — connexion `A-B` → A connaît B et B connaît A
+- [*] **19. Tester le graphe** — afficher hubs, voisins, connexions via `print(graph)`
 
 ---
 
