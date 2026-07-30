@@ -42,8 +42,8 @@ class Connection:
     hub2: str
     max_link_capacity: int = 1
 
-    def key(self) -> tuple[str, str]:
-        return tuple(sorted((self.hub1, self.hub2)))  # type: ignore[return-value]
+    def key(self) -> tuple[str, ...]:
+        return tuple(sorted((self.hub1, self.hub2)))
 
 
 @dataclass

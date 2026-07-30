@@ -9,13 +9,12 @@ uniform float time;
 
 out vec4 finalColor;
 
-// Palette eau cel-shading (5 bandes de couleur plates)
 vec3 water_color(float level) {
-    if (level < 0.20) return vec3(0.02, 0.08, 0.25);  // Abysses
-    if (level < 0.40) return vec3(0.05, 0.20, 0.45);  // Profond
-    if (level < 0.60) return vec3(0.10, 0.35, 0.60);  // Moyen
-    if (level < 0.80) return vec3(0.25, 0.55, 0.80);  // Clair
-    return vec3(0.50, 0.80, 0.95);                     // Surface
+    if (level < 0.20) return vec3(0.02, 0.08, 0.25);
+    if (level < 0.40) return vec3(0.05, 0.20, 0.45);
+    if (level < 0.60) return vec3(0.10, 0.35, 0.60);
+    if (level < 0.80) return vec3(0.25, 0.55, 0.80);
+    return vec3(0.50, 0.80, 0.95);
 }
 
 void main() {
@@ -26,7 +25,6 @@ void main() {
                 + sin(fragPosition.z * 6.0 + time * 2.5) * 0.02;
     h += micro;
 
-    // Normaliser hauteur (-0.4 à 0.4)
     float t = clamp((h + 0.4) / 0.8, 0.0, 1.0);
 
     // CEL-SHADING : quantification en bandes

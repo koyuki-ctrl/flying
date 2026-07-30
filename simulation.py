@@ -1,8 +1,6 @@
 from __future__ import annotations
 from collections import defaultdict
-from typing import Optional
-
-from .models import Drone, MapData
+from models import Drone, MapData
 
 
 class Simulation:
@@ -21,7 +19,7 @@ class Simulation:
         self.finished = False
 
     def _link_key(self, a: str, b: str) -> tuple[str, str]:
-        return tuple(sorted((a, b)))  # type: ignore[return-value]
+        return (a, b) if a <= b else (b, a)
 
     def _zone_capacity(self, hub_name: str) -> int:
         if self.data.is_capacity_unlimited(hub_name):
@@ -85,7 +83,10 @@ class Simulation:
                     occ = len(self.zone_occupancy.get(next_hub, set()))
                     leaving = zone_departures.get(next_hub, 0)
                     arriving = zone_arrivals.get(next_hub, 0)
-                    available = self._zone_capacity(next_hub) - (occ - leaving + arriving)
+                    available = (
+                        self._zone_capacity(next_hub) -
+                        (occ - leaving + arriving)
+                    )
                     if available <= 0:
                         continue
 

@@ -1,6 +1,6 @@
+from __future__ import annotations
 import math
 import pyray as rl
-from os.path import join
 
 
 MENU = 0
@@ -13,10 +13,7 @@ class MainMenu:
         self.h = h
         self.time = 0.0
 
-        self.water_shader = rl.load_shader(
-            join("shaders", "water.vert"),
-            join("shaders", "water.frag")
-        )
+        self.water_shader = rl.load_shader("water.vert", "water.frag")
         self.loc_water_time = rl.get_shader_location(self.water_shader, "time")
         water_mesh = rl.gen_mesh_plane(500.0, 500.0, 80, 80)
         self.water_model = rl.load_model_from_mesh(water_mesh)
@@ -34,25 +31,29 @@ class MainMenu:
         self.press_text = "PRESS ANY BUTTON"
         self.press_size = 24
 
-    def update(self):
+    def update(self) -> str | None:
         self.time += rl.get_frame_time()
-        if rl.get_key_pressed() != 0 or rl.is_mouse_button_pressed(rl.MouseButton.MOUSE_BUTTON_LEFT):
+        if rl.get_key_pressed() != 0 or rl.is_mouse_button_pressed(
+            rl.MouseButton.MOUSE_BUTTON_LEFT
+        ):
             return "start"
         if rl.is_key_pressed(rl.KeyboardKey.KEY_ESCAPE):
             return "quit"
         return None
 
-    def draw(self):
+    def draw(self) -> None:
         rl.clear_background(rl.Color(5, 20, 40, 255))
         self.water_time_ptr[0] = self.time
         rl.set_shader_value(
             self.water_shader,
             self.loc_water_time,
             self.water_time_ptr,
-            rl.SHADER_UNIFORM_FLOAT
+            rl.ShaderUniformDataType.SHADER_UNIFORM_FLOAT
         )
         rl.begin_mode_3d(self.menu_camera)
-        rl.draw_model(self.water_model, rl.Vector3(0.0, -0.8, 0.0), 1.0, rl.WHITE)
+        rl.draw_model(
+            self.water_model, rl.Vector3(0.0, -0.8, 0.0), 1.0, rl.WHITE
+        )
         rl.end_mode_3d()
 
         title = "Flying"
@@ -71,6 +72,6 @@ class MainMenu:
             press_color
         )
 
-    def cleanup(self):
+    def cleanup(self) -> None:
         rl.unload_model(self.water_model)
         rl.unload_shader(self.water_shader)

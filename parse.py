@@ -3,7 +3,7 @@ import re
 from pathlib import Path
 from typing import Optional
 
-from .models import Connection, Hub, HubType, MapData, ZoneType
+from models import Connection, Hub, HubType, MapData, ZoneType
 
 
 class ParseError(Exception):
@@ -39,7 +39,8 @@ def _parse_hub(line: str, line_no: int) -> Hub:
     y = int(y_str)
 
     if "-" in name:
-        raise ParseError(f"Line {line_no}: Hub name cannot contain dash: {name}")
+        raise ParseError(
+            f"Line {line_no}: Hub name cannot contain dash: {name}")
 
     hub_type = HubType.HUB
     if line.startswith("start_hub:"):
@@ -53,7 +54,9 @@ def _parse_hub(line: str, line_no: int) -> Hub:
     try:
         zone_type = ZoneType(zone_str)
     except ValueError as exc:
-        raise ParseError(f"Line {line_no}: Invalid zone type: {zone_str}") from exc
+        raise ParseError(
+            f"Line {line_no}: Invalid zone type: {zone_str}"
+        ) from exc
 
     color = opts.get("color")
     if color == "none":
@@ -100,7 +103,9 @@ def _parse_connection(line: str, line_no: int) -> Connection:
                 f"Line {line_no}: max_link_capacity must be a positive integer"
             ) from exc
 
-    return Connection(hub1=hub1, hub2=hub2, max_link_capacity=max_link_capacity)
+    return Connection(
+        hub1=hub1, hub2=hub2, max_link_capacity=max_link_capacity
+    )
 
 
 def parse_map(filepath: str) -> MapData:
@@ -110,7 +115,7 @@ def parse_map(filepath: str) -> MapData:
 
     data = MapData()
     seen_hubs: set[str] = set()
-    seen_connections: set[tuple[str, str]] = set()
+    seen_connections: set[tuple[str, ...]] = set()
     start_count = 0
     end_count = 0
 
@@ -126,12 +131,14 @@ def parse_map(filepath: str) -> MapData:
                     if data.nb_drones < 1:
                         raise ValueError
                 except (IndexError, ValueError) as exc:
-                    raise ParseError(f"Line {line_no}: Invalid nb_drones") from exc
+                    raise ParseError(
+                        f"Line {line_no}: Invalid nb_drones") from exc
 
             elif line.startswith(("start_hub:", "end_hub:", "hub:")):
                 hub = _parse_hub(line, line_no)
                 if hub.name in seen_hubs:
-                    raise ParseError(f"Line {line_no}: Duplicate hub name: {hub.name}")
+                    raise ParseError(
+                        f"Line {line_no}: Duplicate hub name: {hub.name}")
                 seen_hubs.add(hub.name)
                 data.hubs[hub.name] = hub
 
@@ -146,7 +153,8 @@ def parse_map(filepath: str) -> MapData:
                 conn = _parse_connection(line, line_no)
                 if conn.key() in seen_connections:
                     raise ParseError(
-                        f"Line {line_no}: Duplicate connection: {conn.hub1}-{conn.hub2}"
+                        f"Line {line_no}: " +
+                        f"Duplicate connection: {conn.hub1}-{conn.hub2}"
                     )
                 if conn.hub1 not in seen_hubs or conn.hub2 not in seen_hubs:
                     raise ParseError(

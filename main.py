@@ -4,8 +4,8 @@ import sys
 import pyray as rl
 from os.path import join
 
-from src.window import Window
-from src.main_window import MainMenu, MENU, GAME
+from window import Window
+from main_window import MainMenu, MENU, GAME
 
 
 def main() -> int:
@@ -19,13 +19,15 @@ def main() -> int:
     game: Window | None = None
     sky = rl.load_texture(join("assets", "sky.jpg"))
 
-    map_file = sys.argv[1] if len(sys.argv) > 1 else "maps/easy/01_linear_path.txt"
+    map_file = (
+        sys.argv[1] if len(sys.argv) > 1 else "maps/easy/01_linear_path.txt"
+    )
 
     while not rl.window_should_close():
         if scene == MENU:
             action = menu.update()
             if action == "start":
-                game = Window(w, h, "FLYING")
+                game = Window(w, h)
                 game.load_map(map_file)
                 scene = GAME
             elif action == "quit":
@@ -63,4 +65,15 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    try:
+        sys.exit(main())
+    except KeyboardInterrupt:
+        print("Program was interrupted")
+    except IsADirectoryError as directory_error:
+        print(directory_error)
+    except FileNotFoundError as not_found:
+        print(not_found)
+    except PermissionError as permission:
+        print(permission)
+    except Exception as exception:
+        print(exception)

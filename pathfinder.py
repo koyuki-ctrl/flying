@@ -3,7 +3,7 @@ import heapq
 from collections import defaultdict
 from typing import Optional
 
-from .models import MapData, ZoneType
+from models import MapData, ZoneType
 
 
 def find_path(
@@ -35,7 +35,8 @@ def find_path(
 
             zone_cost = data.get_zone_cost(neighbor)
             penalty = hub_penalty.get(neighbor, 0)
-            priority_bonus = -0.1 if hub.zone_type == ZoneType.PRIORITY else 0.0
+            priority_bonus = (
+                -0.1 if hub.zone_type == ZoneType.PRIORITY else 0.0)
             new_cost = cost + zone_cost + penalty + priority_bonus
             heapq.heappush(pq, (new_cost, neighbor, path + [neighbor]))
 
