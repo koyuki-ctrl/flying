@@ -2,7 +2,6 @@ from __future__ import annotations
 import sys
 
 import pyray as rl
-from os.path import join
 
 from window import Window
 from main_window import MainMenu, MENU, GAME
@@ -17,7 +16,7 @@ def main() -> int:
     scene = MENU
     menu = MainMenu(w, h)
     game: Window | None = None
-    sky = rl.load_texture(join("assets", "sky.jpg"))
+    sky = rl.load_texture("sky.jpg")
 
     map_file = (
         sys.argv[1] if len(sys.argv) > 1 else "maps/easy/01_linear_path.txt"

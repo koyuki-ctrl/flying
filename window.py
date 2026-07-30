@@ -10,9 +10,8 @@ from pyray import (
     get_ray_collision_sphere, draw_rectangle, draw_rectangle_lines, draw_text,
     LIGHTGRAY, get_world_to_screen, get_mesh_bounding_box, color_from_hsv,
     gen_mesh_plane, load_model_from_mesh, draw_model_ex, is_key_pressed, lerp,
-    unload_model, draw_sphere, get_mouse_wheel_move
+    unload_model, draw_sphere, get_mouse_wheel_move, draw_plane, Vector2
 )
-from os.path import join
 from models import Hub
 from parse import parse_map
 from pathfinder import assign_paths
@@ -26,7 +25,7 @@ class Window:
         self.w = width
         self.h = height
         self.time = 0.0
-        self.scale = 5.0
+        self.scale = 10.0
 
         self.camera = Camera3D()
         self.camera.position = Vector3(10.0, 10.0, 10.0)
@@ -35,8 +34,8 @@ class Window:
         self.camera.fovy = 75.0
         self.camera.projection = CameraProjection.CAMERA_PERSPECTIVE
 
-        self.camera_yaw = math.radians(85.0)
-        self.camera_pitch = math.radians(75.264)
+        self.camera_yaw = math.radians(100.0)
+        self.camera_pitch = math.radians(65.264)
         self.camera_distance = 20.0
         self._update_camera()
 
@@ -47,12 +46,12 @@ class Window:
         self.pannel_height = 157
         self.selected_hub: Optional[Hub] = None
 
-        self.hub = load_model(join("assets", "hub.glb"))
-        self.drone = load_model(join("assets", "Drone.glb"))
+        self.hub = load_model("hub.glb")
+        self.drone = load_model("Drone.glb")
 
         self.water_shader = load_shader("water.vert", "water.frag")
         self.loc_water_time = get_shader_location(self.water_shader, "time")
-        water_mesh = gen_mesh_plane(500.0, 500.0, 80, 80)
+        water_mesh = gen_mesh_plane(1000.0, 1000.0, 80, 80)
         self.water_model = load_model_from_mesh(water_mesh)
         for i in range(self.water_model.materialCount):
             self.water_model.materials[i].shader = self.water_shader
@@ -288,7 +287,8 @@ class Window:
             r, g, b = GROUND_COLOR_MAP.get(map_color, (1.0, 1.0, 1.0))
             color = Color(to_byte(r), to_byte(g), to_byte(b), 255)
 
-        draw_model(self.hub, pos, 0.6, color)
+        draw_model(self.hub, pos, 0.6, WHITE)
+        draw_plane(pos, Vector2(7, 5), color)
 
     def draw_drone(self) -> None:
         for vd in self.vdrones:
@@ -332,7 +332,7 @@ class Window:
             raycast = get_screen_to_world_ray(mouse_position, self.camera)
             for hub in self.data.hubs.values():
                 center = Vector3(hub.x * self.scale, 0.5, hub.y * self.scale)
-                collision = get_ray_collision_sphere(raycast, center, 1.2)
+                collision = get_ray_collision_sphere(raycast, center, 5)
                 if collision.hit:
                     self.pannel_visible = True
                     self.selected_hub = hub
