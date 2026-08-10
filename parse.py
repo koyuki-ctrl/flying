@@ -18,6 +18,10 @@ def _parse_options(options_str: Optional[str]) -> dict[str, str]:
         if "=" not in item:
             raise ParseError(f"Invalid option format: {item}")
         key, value = item.split("=", 1)
+        if key in opts:
+            raise ParseError(
+                "Duplicate metadata key "
+                f"'{key}' in hub options")
         opts[key] = value
     return opts
 
@@ -116,6 +120,7 @@ def parse_map(filepath: str) -> MapData:
     data = MapData()
     seen_hubs: set[str] = set()
     seen_connections: set[tuple[str, ...]] = set()
+    seen_coords: set[tuple[int, int]] = set()
     start_count = 0
     end_count = 0
 
@@ -140,6 +145,14 @@ def parse_map(filepath: str) -> MapData:
                     raise ParseError(
                         f"Line {line_no}: Duplicate hub name: {hub.name}")
                 seen_hubs.add(hub.name)
+                coord = (hub.x, hub.y)
+                if coord in seen_coords:
+                    raise ParseError(
+                        f"Line {line_no}: Duplicate hub coordinates "
+                        f"({hub.x}, {hub.y}): " +
+                        f"'{hub.name}' overlaps with another hub"
+                    )
+                seen_coords.add(coord)
                 data.hubs[hub.name] = hub
 
                 if hub.hub_type == HubType.START:

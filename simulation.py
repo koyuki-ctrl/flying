@@ -30,9 +30,6 @@ class Simulation:
     def _link_capacity(self, hub1: str, hub2: str) -> int:
         return self.data.get_link_capacity(hub1, hub2)
 
-    def _zone_cost(self, hub_name: str) -> int:
-        return self.data.get_zone_cost(hub_name)
-
     def run(self) -> list[str]:
         max_turns = 10000
         turn_count = 0
@@ -41,7 +38,8 @@ class Simulation:
             turn_count += 1
             moves: list[str] = []
 
-            # Step 1: drones in transit arrive
+            # Step 1: drones in transit arrive (gardé pour compatibilité,
+            # mais plus utilisé si plus de transit)
             for d in self.drones:
                 if d.state == "transit":
                     d.transit_turns -= 1
@@ -69,7 +67,7 @@ class Simulation:
                 and d.path_index < len(d.path) - 1
             ]
             candidates.sort(key=lambda d: d.drone_id)
-            planned: list[tuple[Drone, str, bool]] = []
+            planned: list[tuple[Drone, str]] = []
 
             for d in candidates:
                 current = d.path[d.path_index]
@@ -92,27 +90,20 @@ class Simulation:
 
                 link_usage[lk] += 1
                 zone_departures[current] += 1
-                is_restricted = self._zone_cost(next_hub) == 2
-                if not is_restricted:
-                    zone_arrivals[next_hub] += 1
-                planned.append((d, current, is_restricted))
+                zone_arrivals[next_hub] += 1
+                planned.append((d, current))
 
-            for d, current, is_restricted in planned:
+            for d, current in planned:
                 next_hub = d.path[d.path_index + 1]
                 self.zone_occupancy[current].discard(d.name)
 
-                if is_restricted:
-                    d.state = "transit"
-                    d.transit_target = next_hub
-                    d.transit_turns = 1
-                    moves.append(f"{d.name}-{current}-{next_hub}")
+                # SUPPRESSION DU TRANSIT : tous les hubs sont traités pareil
+                d.path_index += 1
+                if next_hub == self.data.end_hub:
+                    d.state = "arrived"
                 else:
-                    d.path_index += 1
-                    if next_hub == self.data.end_hub:
-                        d.state = "arrived"
-                    else:
-                        self.zone_occupancy[next_hub].add(d.name)
-                    moves.append(f"{d.name}-{next_hub}")
+                    self.zone_occupancy[next_hub].add(d.name)
+                moves.append(f"{d.name}-{next_hub}")
 
             if moves:
                 self.turns.append(" ".join(moves))

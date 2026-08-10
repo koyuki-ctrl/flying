@@ -299,7 +299,7 @@ class Window:
             pos = vd["pos"]
             draw_sphere(pos, 0.25, sphere_color)
             draw_model_ex(
-                self.drone, pos, z_axes, rot, Vector3(1.2, 1.2, 1.2), WHITE
+                self.drone, pos, z_axes, rot, Vector3(2.5, 2.5, 2.5), WHITE
             )
 
     def draw_drone_labels(self) -> None:
