@@ -1,3 +1,9 @@
+"""Pathfinding module for the FLY-ing drone simulation.
+
+Implements Dijkstra-based pathfinding with hub penalties to distribute
+drone traffic across the map and avoid congestion at intermediate hubs.
+"""
+
 from __future__ import annotations
 import heapq
 from collections import defaultdict
@@ -12,6 +18,23 @@ def find_path(
     end: str,
     hub_penalty: Optional[dict[str, int]] = None,
 ) -> list[str]:
+    """Find the lowest-cost path between two hubs using Dijkstra's algorithm.
+
+    The search respects zone costs, optional hub penalties, and avoids
+    blocked zones. Priority zones receive a slight cost bonus to encourage
+    routing through them.
+
+    Args:
+        data: The map data containing hubs, connections, and zone information.
+        start: Name of the starting hub.
+        end: Name of the destination hub.
+        hub_penalty: Optional dictionary mapping hub names to additional
+            cost penalties, used to discourage reusing congested hubs.
+
+    Returns:
+        A list of hub names from start to end inclusive, or an empty list
+        if no valid path exists.
+    """
     if hub_penalty is None:
         hub_penalty = {}
 
@@ -44,6 +67,19 @@ def find_path(
 
 
 def assign_paths(data: MapData) -> list[list[str]]:
+    """Assign an independent path for each drone from start to end.
+
+    Paths are computed sequentially with increasing penalties on hubs
+    already used by previous drones, promoting route diversity and
+    reducing hub congestion.
+
+    Args:
+        data: The map data for the simulation.
+
+    Returns:
+        A list of paths, one per drone. Each path is a list of hub names.
+        If start or end hubs are missing, returns a list of empty paths.
+    """
     if data.start_hub is None or data.end_hub is None:
         return [[] for _ in range(data.nb_drones)]
 

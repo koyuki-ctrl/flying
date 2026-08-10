@@ -1,3 +1,9 @@
+"""Menu Scene for FLY-ing the program.
+
+Display menu scene (welcome scene), running before drone simulation,
+loads title, shaders, animations, camera.
+"""
+
 from __future__ import annotations
 import math
 import pyray as rl
@@ -8,7 +14,19 @@ GAME = 1
 
 
 class MainMenu:
+    """Main menu scene rendered before the drone simulation starts.
+
+    Displays an animated water background with a 3D orthographic camera,
+    the game title, and a blinking prompt to start the game.
+    """
+
     def __init__(self, w: int, h: int):
+        """Initialize the main menu scene.
+
+        Args:
+            w: Screen width in pixels.
+            h: Screen height in pixels.
+        """
         self.w = w
         self.h = h
         self.time = 0.0
@@ -32,6 +50,16 @@ class MainMenu:
         self.press_size = 24
 
     def update(self) -> str | None:
+        """Update menu logic and handle user input.
+
+        Increments the internal timer and checks for keyboard or mouse
+        events to transition out of the menu.
+
+        Returns:
+            "start" if the player pressed any key or the left mouse button.
+            "quit" if the Escape key was pressed.
+            None if no relevant input occurred.
+        """
         self.time += rl.get_frame_time()
         if rl.get_key_pressed() != 0 or rl.is_mouse_button_pressed(
             rl.MouseButton.MOUSE_BUTTON_LEFT
@@ -42,6 +70,12 @@ class MainMenu:
         return None
 
     def draw(self) -> None:
+        """Render the menu frame.
+
+        Clears the background, updates the water shader with the current
+        time, draws the animated water plane, and renders the title and
+        blinking prompt text.
+        """
         rl.clear_background(rl.Color(5, 20, 40, 255))
         self.water_time_ptr[0] = self.time
         rl.set_shader_value(
@@ -73,5 +107,9 @@ class MainMenu:
         )
 
     def cleanup(self) -> None:
+        """Release GPU resources allocated by the menu scene.
+
+        Unloads the water model and its associated shader to free VRAM.
+        """
         rl.unload_model(self.water_model)
         rl.unload_shader(self.water_shader)

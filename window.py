@@ -1,3 +1,10 @@
+"""3D rendering window and simulation visualization for FLY-ing.
+
+Manages the Raylib-based 3D viewport, camera controls, hub and drone
+rendering, water shader effects, and interactive playback of the
+discrete simulation turns.
+"""
+
 import math
 from typing import Optional, Any
 
@@ -20,7 +27,32 @@ from utils import to_byte, GROUND_COLOR_MAP, DRONE_COLORS
 
 
 class Window:
+    """Main 3D window handling rendering, camera, and simulation playback.
+
+    Loads map data, runs the discrete simulation, and animates drone
+    movements between hubs in real time. Supports mouse-based camera
+    control, hub selection panels, and play/pause stepping through turns.
+
+    Attributes:
+        data: Parsed MapData for the currently loaded map.
+        w: Window width in pixels.
+        h: Window height in pixels.
+        time: Accumulated elapsed time for shader and animation effects.
+        scale: Spatial scaling factor between grid coordinates and world units.
+        camera: The 3D camera used for rendering the scene.
+        sim: The Simulation instance after a map is loaded.
+        turns: List of turn strings produced by the simulation.
+        history: Snapshots of drone states before and after each turn.
+        vdrones: Visual drone descriptors with positions, colors, and offsets.
+    """
+
     def __init__(self, width: int, height: int):
+        """Initialize the window, camera, shaders, and default map data.
+
+        Args:
+            width: Initial window width.
+            height: Initial window height.
+        """
         self.data = parse_map("maps/easy/01_linear_path.txt")
         self.w = width
         self.h = height
@@ -73,7 +105,14 @@ class Window:
         self.vdrones: list[dict[str, Any]] = []
 
     def load_map(self, filepath: str) -> None:
-        """Load a map file and prepare the discrete simulation."""
+        """Load a map file and prepare the discrete simulation.
+
+        Parses the map, assigns paths to drones, runs the simulation,
+        builds the state history, and initializes visual drone objects.
+
+        Args:
+            filepath: Path to the map definition file.
+        """
         self.data = parse_map(filepath)
         paths = assign_paths(self.data)
         self.sim = Simulation(self.data, paths)
@@ -83,14 +122,17 @@ class Window:
         self._print_raw_output()
 
     def _print_raw_output(self) -> None:
+        """Print the raw simulation turn output to the console."""
         print("\n=== RAW SIMULATION OUTPUT ===")
         for line in self.turns:
             print(line)
         print(f"Total turns: {len(self.turns)}\n")
 
     def _build_history(self) -> None:
-        """Build state history:
-        history[0] = initial, history[i+1] = after turn i.
+        """Build the state history from simulation turns.
+
+        history[0] holds the initial state; history[i+1] holds the state
+        after turn i has been applied.
         """
         self.history = []
         state: dict[str, tuple[str, str]] = {}
@@ -118,11 +160,21 @@ class Window:
             state = new_state
 
     def _compute_offset(self, index: int) -> tuple[float, float]:
+        """Compute a circular offset for visual drone separation.
+
+        Args:
+            index: The drone's visual index used to determine ring and angle.
+
+        Returns:
+            A tuple (ox, oy) representing the XZ-plane offset in world units.
+        """
         angle = (index % 8) * (2 * math.pi / 8)
         radius = 1.2 * ((index // 8) + 1)
         return (math.cos(angle) * radius, math.sin(angle) * radius)
 
     def _init_visual_drones(self) -> None:
+        """Create visual drone descriptors and position them at the start hub.
+        """
         self.vdrones = []
         if not self.sim:
             return
@@ -139,6 +191,16 @@ class Window:
         self._apply_state_to_visuals(self.history[0], self.history[0])
 
     def _hub_pos(self, hub_name: str, ox: float, oy: float) -> Vector3:
+        """Calculate the world position for a drone at a given hub.
+
+        Args:
+            hub_name: Name of the hub.
+            ox: Visual X offset to avoid overlapping drones.
+            oy: Visual Z offset to avoid overlapping drones.
+
+        Returns:
+            A Vector3 world position.
+        """
         hub = self.data.hubs.get(hub_name)
         if hub is None:
             return Vector3(0, 1.5, 0)
@@ -149,6 +211,17 @@ class Window:
         )
 
     def _conn_pos(self, h1: str, h2: str, ox: float, oy: float) -> Vector3:
+        """Calculate the world position for a drone traveling between two hubs.
+
+        Args:
+            h1: Name of the origin hub.
+            h2: Name of the destination hub.
+            ox: Visual X offset.
+            oy: Visual Z offset.
+
+        Returns:
+            A Vector3 world position at the midpoint between the hubs.
+        """
         hub1 = self.data.hubs.get(h1)
         hub2 = self.data.hubs.get(h2)
         if hub1 is None or hub2 is None:
@@ -162,6 +235,16 @@ class Window:
         )
 
     def _pos_for_location(self, loc: str, ox: float, oy: float) -> Vector3:
+        """Resolve a location string to a world position.
+
+        Args:
+            loc: Either a hub name or a transit key "hub1-hub2".
+            ox: Visual X offset.
+            oy: Visual Z offset.
+
+        Returns:
+            The corresponding world position.
+        """
         if "-" in loc:
             parts = loc.split("-")
             return self._conn_pos(parts[0], parts[1], ox, oy)
@@ -171,6 +254,13 @@ class Window:
         self, from_state: dict[str, tuple[str, str]],
         to_state: dict[str, tuple[str, str]]
     ) -> None:
+        """Set the from/to positions for
+        all visual drones based on state change.
+
+        Args:
+            from_state: State dictionary before the transition.
+            to_state: State dictionary after the transition.
+        """
         start_hub = self.data.start_hub or ""
         for vd in self.vdrones:
             ox, oy = vd["offset"]
@@ -180,6 +270,9 @@ class Window:
             vd["to_pos"] = self._pos_for_location(tloc, ox, oy)
 
     def _update_camera(self) -> None:
+        """Recalculate camera position from
+        spherical coordinates around the target.
+        """
         self.camera.position.x = (
             self.camera.target.x + self.camera_distance *
             math.cos(self.camera_yaw) * math.cos(self.camera_pitch)
@@ -194,6 +287,7 @@ class Window:
         )
 
     def mouse_action(self) -> None:
+        """Handle mouse input for zoom (wheel) and camera panning (drag)."""
         wheel = get_mouse_wheel_move()
         if wheel != 0:
             self.camera.fovy -= wheel * 2.0
@@ -216,7 +310,7 @@ class Window:
             self._update_camera()
 
     def _advance_turn(self) -> None:
-        """Advance to the next simulation turn."""
+        """Advance to the next simulation turn and update drone animations."""
         if self.anim_turn < len(self.turns) - 1:
             self.anim_turn += 1
             self._apply_state_to_visuals(
@@ -230,7 +324,7 @@ class Window:
                 self.anim_progress = 1.0
 
     def _go_back_turn(self) -> None:
-        """Go back one simulation turn."""
+        """Step back one simulation turn."""
         if self.anim_turn >= 0:
             self.anim_turn -= 1
             self.anim_progress = 0.0
@@ -241,6 +335,14 @@ class Window:
             )
 
     def update(self, dt: float) -> None:
+        """Update the window state for the current frame.
+
+        Handles time accumulation, mouse input, 3D click detection,
+        and automatic turn progression when playing.
+
+        Args:
+            dt: Delta time in seconds since the last frame.
+        """
         self.time += dt
         self.mouse_action()
         self.check_3d_click()
@@ -266,6 +368,7 @@ class Window:
             )
 
     def draw_connections(self) -> None:
+        """Render all hub-to-hub connections as 3D lines."""
         for conn in self.data.connections:
             hub1 = self.data.hubs.get(conn.hub1)
             hub2 = self.data.hubs.get(conn.hub2)
@@ -275,6 +378,11 @@ class Window:
                 draw_line_3d(pos1, pos2, WHITE)
 
     def draw_hub(self, hub: Hub) -> None:
+        """Render a single hub with its model, ground plane, and dynamic color.
+
+        Args:
+            hub: The Hub instance to render.
+        """
         pos = Vector3(hub.x * self.scale, 0.0, hub.y * self.scale)
         map_color = hub.color
 
@@ -291,6 +399,7 @@ class Window:
         draw_plane(pos, Vector2(7, 5), color)
 
     def draw_drone(self) -> None:
+        """Render all visual drones as spheres and 3D models."""
         for vd in self.vdrones:
             rot = (self.time * 30.0) % 360.0
             z_axes = Vector3(0.0, 1.0, 0.0)
@@ -303,6 +412,7 @@ class Window:
             )
 
     def draw_drone_labels(self) -> None:
+        """Render drone name labels above each drone in screen space."""
         for vd in self.vdrones:
             screen = get_world_to_screen(vd["pos"], self.camera)
             label = vd["name"]
@@ -313,6 +423,7 @@ class Window:
             )
 
     def draw(self) -> None:
+        """Render the 3D scene: water, hubs, connections, and drones."""
         self.water_time_ptr[0] = self.time
         set_shader_value(
             self.water_shader, self.loc_water_time,
@@ -327,6 +438,7 @@ class Window:
         self.draw_drone()
 
     def check_3d_click(self) -> None:
+        """Detect mouse clicks on hubs and open the info panel if hit."""
         if is_mouse_button_pressed(MouseButton.MOUSE_BUTTON_LEFT):
             mouse_position = get_mouse_position()
             raycast = get_screen_to_world_ray(mouse_position, self.camera)
@@ -341,6 +453,7 @@ class Window:
                 self.pannel_visible = False
 
     def draw_panel(self) -> None:
+        """Render the information panel for the currently selected hub."""
         if not self.pannel_visible or self.selected_hub is None:
             return
         hub = self.selected_hub
@@ -373,6 +486,10 @@ class Window:
         )
 
     def draw_command(self) -> None:
+        """Render the turn counter, status text, and play/pause hint.
+
+        Also handles the SPACE BAR toggle for play/pause and restart.
+        """
         turn_text = f"Turn {self.anim_turn + 1} / {len(self.turns)}"
         if self.all_finished:
             turn_text = f"Done in {len(self.turns)} turns"
@@ -391,5 +508,8 @@ class Window:
                 self.playing = True
 
     def cleanup(self) -> None:
+        """Release GPU resources allocated by the window
+        (water model and shader).
+        """
         unload_model(self.water_model)
         unload_shader(self.water_shader)

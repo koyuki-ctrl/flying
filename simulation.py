@@ -1,10 +1,35 @@
+"""Discrete simulation engine for the FLY-ing drone program.
+
+Runs turn-based drone movement across a map, respecting hub capacities
+and link capacities while advancing drones toward the destination hub.
+"""
+
 from __future__ import annotations
 from collections import defaultdict
 from models import Drone, MapData
 
 
 class Simulation:
+    """Manages the turn-based movement of drones across a map.
+
+    Tracks drone states, zone occupancy, and link usage to compute
+    a valid sequence of moves from the start hub to the end hub.
+
+    Attributes:
+        data: The map data defining hubs, connections, and capacities.
+        drones: List of Drone objects participating in the simulation.
+        zone_occupancy: Mapping from hub name to set of drone names present.
+        turns: List of turn strings representing completed moves.
+        finished: True when all drones have reached the end hub.
+    """
+
     def __init__(self, data: MapData, paths: list[list[str]]) -> None:
+        """Initialize the simulation with map data and precomputed paths.
+
+        Args:
+            data: Parsed map data containing hubs and connections.
+            paths: List of routes, one per drone, as lists of hub names.
+        """
         self.data = data
         self.drones: list[Drone] = []
         for i, path in enumerate(paths, start=1):
@@ -19,18 +44,57 @@ class Simulation:
         self.finished = False
 
     def _link_key(self, a: str, b: str) -> tuple[str, str]:
+        """Return a canonical ordered tuple for a link between two hubs.
+
+        Args:
+            a: Name of the first hub.
+            b: Name of the second hub.
+
+        Returns:
+            A tuple with hub names in lexicographical order.
+        """
         return (a, b) if a <= b else (b, a)
 
     def _zone_capacity(self, hub_name: str) -> int:
+        """Get the effective drone capacity for a hub.
+
+        Start and end hubs are treated as having unlimited capacity.
+
+        Args:
+            hub_name: Name of the hub to query.
+
+        Returns:
+            The maximum number of drones allowed, or a very large number
+            for unlimited-capacity hubs.
+        """
         if self.data.is_capacity_unlimited(hub_name):
             return 999999
         hub = self.data.hubs.get(hub_name)
         return hub.max_drones if hub else 1
 
     def _link_capacity(self, hub1: str, hub2: str) -> int:
+        """Get the maximum number of drones allowed on a link per turn.
+
+        Args:
+            hub1: Name of the first hub.
+            hub2: Name of the second hub.
+
+        Returns:
+            The link capacity as defined in the map data, defaulting to 1.
+        """
         return self.data.get_link_capacity(hub1, hub2)
 
     def run(self) -> list[str]:
+        """Execute the simulation until all drones arrive
+        or a limit is reached.
+
+        Each turn, eligible idle drones attempt to move to the next hub
+        in their path, subject to link and zone capacity constraints.
+
+        Returns:
+            A list of turn strings,
+            each containing space-separated move tokens.
+        """
         max_turns = 10000
         turn_count = 0
 
@@ -38,8 +102,6 @@ class Simulation:
             turn_count += 1
             moves: list[str] = []
 
-            # Step 1: drones in transit arrive (gardé pour compatibilité,
-            # mais plus utilisé si plus de transit)
             for d in self.drones:
                 if d.state == "transit":
                     d.transit_turns -= 1
@@ -55,7 +117,6 @@ class Simulation:
                                 self.zone_occupancy[target].add(d.name)
                             moves.append(f"{d.name}-{target}")
 
-            # Step 2: plan simultaneous movements
             link_usage: dict[tuple[str, str], int] = defaultdict(int)
             zone_departures: dict[str, int] = defaultdict(int)
             zone_arrivals: dict[str, int] = defaultdict(int)
@@ -97,7 +158,6 @@ class Simulation:
                 next_hub = d.path[d.path_index + 1]
                 self.zone_occupancy[current].discard(d.name)
 
-                # SUPPRESSION DU TRANSIT : tous les hubs sont traités pareil
                 d.path_index += 1
                 if next_hub == self.data.end_hub:
                     d.state = "arrived"

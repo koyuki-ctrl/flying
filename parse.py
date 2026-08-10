@@ -1,3 +1,9 @@
+"""Map file parser for the FLY-ing drone simulation.
+
+Provides functions to read and validate map definition files,
+transforming textual descriptions into structured MapData objects.
+"""
+
 from __future__ import annotations
 import re
 from pathlib import Path
@@ -7,10 +13,24 @@ from models import Connection, Hub, HubType, MapData, ZoneType
 
 
 class ParseError(Exception):
+    """Exception raised when a map file contains invalid syntax or logic."""
+
     pass
 
 
 def _parse_options(options_str: Optional[str]) -> dict[str, str]:
+    """Parse a bracketed options string into a key-value dictionary.
+
+    Args:
+        options_str: Raw string like "zone=restricted max_drones=3",
+            or None if no options are present.
+
+    Returns:
+        A dictionary of parsed option keys and values.
+
+    Raises:
+        ParseError: If an option lacks an '=' separator or a key is duplicated.
+    """
     opts: dict[str, str] = {}
     if not options_str:
         return opts
@@ -27,6 +47,19 @@ def _parse_options(options_str: Optional[str]) -> dict[str, str]:
 
 
 def _parse_hub(line: str, line_no: int) -> Hub:
+    """Parse a single hub definition line into a Hub object.
+
+    Args:
+        line: The raw text line from the map file.
+        line_no: The line number for error reporting.
+
+    Returns:
+        A fully constructed Hub instance.
+
+    Raises:
+        ParseError: If the line format is invalid, coordinates are malformed,
+            the hub name contains a dash, or options are invalid.
+    """
     parts = line.split(":", 1)
     if len(parts) != 2:
         raise ParseError(f"Line {line_no}: Invalid hub format")
@@ -84,6 +117,18 @@ def _parse_hub(line: str, line_no: int) -> Hub:
 
 
 def _parse_connection(line: str, line_no: int) -> Connection:
+    """Parse a single connection definition line into a Connection object.
+
+    Args:
+        line: The raw text line from the map file.
+        line_no: The line number for error reporting.
+
+    Returns:
+        A fully constructed Connection instance.
+
+    Raises:
+        ParseError: If the syntax is invalid or options are malformed.
+    """
     parts = line.split(":", 1)
     if len(parts) != 2:
         raise ParseError(f"Line {line_no}: Invalid connection format")
@@ -113,6 +158,23 @@ def _parse_connection(line: str, line_no: int) -> Connection:
 
 
 def parse_map(filepath: str) -> MapData:
+    """Parse a complete map file and return a validated MapData object.
+
+    Reads the file line by line, extracting drone count, hub definitions,
+    and connection definitions. Performs validation for duplicates,
+    coordinate overlaps, missing references, and required fields.
+
+    Args:
+        filepath: Path to the map definition file.
+
+    Returns:
+        A populated and validated MapData instance.
+
+    Raises:
+        FileNotFoundError: If the specified file does not exist.
+        ParseError: If the file contains syntax errors, duplicates,
+            missing required fields, or logical inconsistencies.
+    """
     path = Path(filepath)
     if not path.exists():
         raise FileNotFoundError(f"File not found: {filepath}")

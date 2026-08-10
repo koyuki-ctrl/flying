@@ -1,13 +1,30 @@
+"""Entry point for the FLY-ing program.
+
+Initializes and displays the window, handles keyboard input,
+and displays the first scene it also keeps the window open.
+read maps with arguments.
+"""
+
 from __future__ import annotations
 import sys
-
 import pyray as rl
-
 from window import Window
-from main_window import MainMenu, MENU, GAME
+from menu_window import MainMenu, MENU, GAME
 
 
 def main() -> int:
+    """Run the full app and initializes and display window.
+
+    Initializes and shows all scenes, window, texture, window loop,
+    load maps, draw, forms and textures, and handle keyboard inputs.
+
+    Raises:
+        KeyboardInterrupt: Gracefully handled with timing summary,
+        IsADirectoryError: Insure the program read files not directories,
+        FileNotFoundError: Handle all files are not empty,
+        PermissionError: Handle the files has readable permission,
+        Exception: Handle another error.
+    """
     w, h = 1200, 800
 
     rl.init_window(w, h, "FLYING")
