@@ -14,7 +14,6 @@ from models import Connection, Hub, HubType, MapData, ZoneType
 
 class ParseError(Exception):
     """Exception raised when a map file contains invalid syntax or logic."""
-
     pass
 
 

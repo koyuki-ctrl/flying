@@ -91,7 +91,6 @@ class Window:
 
         self.hub_local_bb = get_mesh_bounding_box(self.hub.meshes[0])
 
-        # Simulation state
         self.sim: Optional[Simulation] = None
         self.turns: list[str] = []
         self.history: list[dict[str, tuple[str, str]]] = []
@@ -101,7 +100,6 @@ class Window:
         self.playing = False
         self.all_finished = False
 
-        # Visual drones
         self.vdrones: list[dict[str, Any]] = []
 
     def load_map(self, filepath: str) -> None:

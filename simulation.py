@@ -2,11 +2,21 @@
 
 Runs turn-based drone movement across a map, respecting hub capacities
 and link capacities while advancing drones toward the destination hub.
+
+CHANGES vs. the original version:
+- Entering a `restricted` zone now genuinely costs 2 simulation turns
+  (previously `Drone.transit_target` / `transit_turns` were defined in
+  models.py but never actually used in `run()`, so every move cost 1
+  turn regardless of zone type).
+- A drone that finishes a multi-turn transit this turn can no longer be
+  re-selected as a movement candidate in that same turn (previously it
+  could "land" and immediately depart again in the same turn, silently
+  cancelling the 2-turn cost).
 """
 
 from __future__ import annotations
 from collections import defaultdict
-from models import Drone, MapData
+from models import Drone, MapData, ZoneType
 
 
 class Simulation:
@@ -84,12 +94,33 @@ class Simulation:
         """
         return self.data.get_link_capacity(hub1, hub2)
 
+    def _is_restricted_entry(self, hub_name: str) -> bool:
+        """Check whether moving into this hub should cost 2 turns.
+
+        The end hub is always treated as a normal (1-turn) arrival, even
+        if it happens to be tagged `restricted`, since drones delivered
+        to the end hub are immediately considered arrived.
+
+        Args:
+            hub_name: Name of the destination hub.
+
+        Returns:
+            True if entering this hub requires a 2-turn transit.
+        """
+        if hub_name == self.data.end_hub:
+            return False
+        hub = self.data.hubs.get(hub_name)
+        return hub is not None and hub.zone_type == ZoneType.RESTRICTED
+
     def run(self) -> list[str]:
         """Execute the simulation until all drones arrive
         or a limit is reached.
 
         Each turn, eligible idle drones attempt to move to the next hub
         in their path, subject to link and zone capacity constraints.
+        Moves into a `restricted` zone take 2 turns: the connection and
+        the destination slot are reserved on departure, and the drone
+        cannot be reassigned to a new move until it actually arrives.
 
         Returns:
             A list of turn strings,
@@ -101,7 +132,7 @@ class Simulation:
         while turn_count < max_turns:
             turn_count += 1
             moves: list[str] = []
-
+            just_arrived: set[str] = set()
             for d in self.drones:
                 if d.state == "transit":
                     d.transit_turns -= 1
@@ -111,6 +142,7 @@ class Simulation:
                             d.state = "idle"
                             d.path_index += 1
                             d.transit_target = None
+                            just_arrived.add(d.name)
                             if target == self.data.end_hub:
                                 d.state = "arrived"
                             else:
@@ -120,10 +152,10 @@ class Simulation:
             link_usage: dict[tuple[str, str], int] = defaultdict(int)
             zone_departures: dict[str, int] = defaultdict(int)
             zone_arrivals: dict[str, int] = defaultdict(int)
-
             candidates = [
                 d for d in self.drones
                 if d.state == "idle"
+                and d.name not in just_arrived
                 and d.path
                 and d.path_index < len(d.path) - 1
             ]
@@ -158,12 +190,19 @@ class Simulation:
                 next_hub = d.path[d.path_index + 1]
                 self.zone_occupancy[current].discard(d.name)
 
-                d.path_index += 1
-                if next_hub == self.data.end_hub:
-                    d.state = "arrived"
-                else:
+                if self._is_restricted_entry(next_hub):
+                    d.state = "transit"
+                    d.transit_target = next_hub
+                    d.transit_turns = 1
                     self.zone_occupancy[next_hub].add(d.name)
-                moves.append(f"{d.name}-{next_hub}")
+                    moves.append(f"{d.name}-{current}-{next_hub}")
+                else:
+                    d.path_index += 1
+                    if next_hub == self.data.end_hub:
+                        d.state = "arrived"
+                    else:
+                        self.zone_occupancy[next_hub].add(d.name)
+                    moves.append(f"{d.name}-{next_hub}")
 
             if moves:
                 self.turns.append(" ".join(moves))
