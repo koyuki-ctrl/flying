@@ -94,6 +94,57 @@ class Simulation:
         """
         return self.data.get_link_capacity(hub1, hub2)
 
+    def _occupacity(self, moves: list[str]) -> None:
+        """Print a formatted summary of this turn's moves with occupancy info.
+
+        For each move token in `moves`, resolves the destination hub's
+        current occupancy (drones already present in `zone_occupancy` plus
+        drones that have already arrived there this turn) and its capacity
+        (unlimited-size handling for the end hub, `max_drones` otherwise),
+        then prints one line combining every move as
+        `DRONE-HUB (occ/cap)` for direct moves or
+        `DRONE-DEP-ARR (occ/cap)` for multi-turn transit moves.
+
+        Args:
+            moves: List of move tokens produced this turn, each either
+                "Dn-hub" (a completed move/arrival) or "Dn-dep-arr"
+                (a move that started a multi-turn transit).
+        """
+        arrived_count: dict[str, int] = defaultdict(int)
+        for d in self.drones:
+            if d.state == "arrived" and d.current_zone:
+                arrived_count[d.current_zone] += 1
+
+        move_parts: list[str] = []
+        for move in moves:
+            parts = move.split("-")
+            if len(parts) == 2:
+                drone = parts[0]
+                hub = parts[1]
+                occ = (
+                    len(self.zone_occupancy.get(hub, set()))
+                    + arrived_count.get(hub, 0))
+                if hub == self.data.end_hub:
+                    cap = len(self.drones)
+                else:
+                    cap = self.data.hubs[hub].max_drones
+                move_parts.append(f"{drone}-{hub} ({occ}/{cap})")
+            elif len(parts) == 3:
+                drone = parts[0]
+                dep = parts[1]
+                arr = parts[2]
+                occ = (
+                    len(self.zone_occupancy.get(arr, set()))
+                    + arrived_count.get(arr, 0))
+                if arr == self.data.end_hub:
+                    cap = len(self.drones)
+                else:
+                    cap = self.data.hubs[arr].max_drones
+
+                move_parts.append(f"{drone}-{dep}-{arr} ({occ}/{cap})")
+
+        print("".join(move_parts))
+
     def _is_restricted_entry(self, hub_name: str) -> bool:
         """Check whether moving into this hub should cost 2 turns.
 
@@ -112,9 +163,9 @@ class Simulation:
         hub = self.data.hubs.get(hub_name)
         return hub is not None and hub.zone_type == ZoneType.RESTRICTED
 
-    def run(self) -> list[str]:
-        """Execute the simulation until all drones arrive
-        or a limit is reached.
+    def run(self, verbose: bool = False) -> list[str]:
+        """
+        Execute the simulation until all drones arrive or a limit is reached.
 
         Each turn, eligible idle drones attempt to move to the next hub
         in their path, subject to link and zone capacity constraints.
@@ -206,6 +257,8 @@ class Simulation:
 
             if moves:
                 self.turns.append(" ".join(moves))
+                if verbose:
+                    self._occupacity(moves)
 
             if all(d.state == "arrived" for d in self.drones):
                 self.finished = True

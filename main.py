@@ -8,6 +8,7 @@ read maps with arguments.
 from __future__ import annotations
 import sys
 import pyray as rl
+from raylib import LOG_NONE
 from window import Window
 from menu_window import MainMenu, MENU, GAME
 
@@ -27,6 +28,7 @@ def main() -> int:
     """
     w, h = 1200, 800
 
+    rl.set_trace_log_level(LOG_NONE)
     rl.init_window(w, h, "FLYING")
     rl.set_target_fps(60)
 
@@ -35,9 +37,11 @@ def main() -> int:
     game: Window | None = None
     sky = rl.load_texture("sky.jpg")
 
-    map_file = (
-        sys.argv[1] if len(sys.argv) > 1 else "maps/easy/01_linear_path.txt"
-    )
+    args = sys.argv[1:]
+    if args:
+        map_file = args[0]
+    else:
+        map_file = "maps/easy/01_linear_path.txt"
 
     while not rl.window_should_close():
         if scene == MENU:

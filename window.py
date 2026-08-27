@@ -121,7 +121,7 @@ class Window:
 
     def _print_raw_output(self) -> None:
         """Print the raw simulation turn output to the console."""
-        print("\n=== RAW SIMULATION OUTPUT ===")
+        print("")
         for line in self.turns:
             print(line)
         print(f"Total turns: {len(self.turns)}\n")
@@ -171,8 +171,7 @@ class Window:
         return (math.cos(angle) * radius, math.sin(angle) * radius)
 
     def _init_visual_drones(self) -> None:
-        """Create visual drone descriptors and position them at the start hub.
-        """
+        """Create visual drone descriptors, position them at the start hub."""
         self.vdrones = []
         if not self.sim:
             return
@@ -252,8 +251,8 @@ class Window:
         self, from_state: dict[str, tuple[str, str]],
         to_state: dict[str, tuple[str, str]]
     ) -> None:
-        """Set the from/to positions for
-        all visual drones based on state change.
+        """
+        Set the from/to positions for all visual drones based on state change.
 
         Args:
             from_state: State dictionary before the transition.
@@ -268,9 +267,7 @@ class Window:
             vd["to_pos"] = self._pos_for_location(tloc, ox, oy)
 
     def _update_camera(self) -> None:
-        """Recalculate camera position from
-        spherical coordinates around the target.
-        """
+        """Recalc camera pos from spherical coords around target."""
         self.camera.position.x = (
             self.camera.target.x + self.camera_distance *
             math.cos(self.camera_yaw) * math.cos(self.camera_pitch)
@@ -506,8 +503,6 @@ class Window:
                 self.playing = True
 
     def cleanup(self) -> None:
-        """Release GPU resources allocated by the window
-        (water model and shader).
-        """
+        """Release GPU resources allocated by the window."""
         unload_model(self.water_model)
         unload_shader(self.water_shader)

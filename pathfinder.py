@@ -83,7 +83,6 @@ def find_path(
 
     while pq:
         cost, current, path = heapq.heappop(pq)
-
         if current == end:
             return path
 
@@ -151,6 +150,13 @@ def assign_paths(data: MapData) -> list[list[str]]:
     simulated turn count -- letting real congestion (not a fixed
     heuristic) decide how much route diversity is worth it.
 
+    Every candidate pool size tried here is simulated silently
+    (`verbose=False`): this is just an internal search to pick the best
+    lane count, not the simulation that should be shown to the user.
+    The caller is expected to run the returned paths through its own
+    `Simulation` once (optionally with `verbose=True`) to display the
+    turn-by-turn output exactly one time.
+
     Args:
         data: The map data for the simulation.
 
@@ -173,7 +179,7 @@ def assign_paths(data: MapData) -> list[list[str]]:
             lanes[i % len(lanes)] for i in range(data.nb_drones)
         ]
         sim = Simulation(data, candidate)
-        turns = sim.run()
+        turns = sim.run(verbose=False)
         if sim.finished and len(turns) < best_turns:
             best_turns = len(turns)
             best_paths = candidate

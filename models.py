@@ -135,7 +135,7 @@ class Drone:
 
     @property
     def name(self) -> str:
-        """Return the formatted drone name (e.g., D1, D2).
+        """Return the drone's display name, formatted as e.g. 'D1' or 'D2'.
 
         Returns:
             A string prefixed with 'D' followed by the drone ID.
