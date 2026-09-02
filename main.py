@@ -36,7 +36,6 @@ def main() -> int:
     menu = MainMenu(w, h)
     game: Window | None = None
     sky = rl.load_texture("sky.jpg")
-
     args = sys.argv[1:]
     if args:
         map_file = args[0]

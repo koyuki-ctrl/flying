@@ -21,6 +21,8 @@ debug: install
 clean:
 	rm -rf $(VENV_DIR) __pycache__ *.pyc .mypy_cache .pytest_cache
 
+re: clean $(VENV_DIR)
+
 lint: install
 	$(VENV_PYTHON) -m flake8 --exclude=.venv,__pycache__,.mypy_cache
 	$(VENV_PYTHON) -m mypy --warn-return-any --warn-unused-ignores --ignore-missing-imports --disallow-untyped-defs --check-untyped-defs .
@@ -32,4 +34,4 @@ lint-strict: install
 freeze:
 	$(VENV_PYTHON) -m pip freeze > $(REQUIREMENTS)
 
-.PHONY: install run debug clean lint lint-strict freeze
+.PHONY: install run debug clean lint lint-strict freeze re
