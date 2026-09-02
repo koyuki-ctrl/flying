@@ -7,7 +7,6 @@ and small conversion utilities used across the application.
 from __future__ import annotations
 from pyray import Color, color_from_hsv, get_time
 
-
 GROUND_COLOR_MAP = {
     "green":    (0.3, 0.7, 0.2),
     "blue":     (0.2, 0.4, 0.8),

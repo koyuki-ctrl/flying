@@ -7,7 +7,6 @@ discrete simulation turns.
 
 import math
 from typing import Optional, Any
-
 from pyray import (
     WHITE, Camera3D, Vector3, CameraProjection, load_model,
     draw_model, load_shader, unload_shader, get_shader_location,
@@ -17,11 +16,12 @@ from pyray import (
     get_ray_collision_sphere, draw_rectangle, draw_rectangle_lines, draw_text,
     LIGHTGRAY, get_world_to_screen, get_mesh_bounding_box, color_from_hsv,
     gen_mesh_plane, load_model_from_mesh, draw_model_ex, is_key_pressed, lerp,
-    unload_model, draw_sphere, get_mouse_wheel_move, draw_plane, Vector2
+    unload_model, draw_sphere, get_mouse_wheel_move, draw_plane, Vector2,
+    get_screen_width
 )
 from models import Hub
-from parse import parse_map
-from pathfinder import assign_paths
+from parse import MapParser
+from pathfinder import PathFinder
 from simulation import Simulation
 from utils import to_byte, GROUND_COLOR_MAP, DRONE_COLORS
 
@@ -53,11 +53,12 @@ class Window:
             width: Initial window width.
             height: Initial window height.
         """
-        self.data = parse_map("maps/easy/01_linear_path.txt")
+        self.data = MapParser().parse_map("maps/easy/01_linear_path.txt")
         self.w = width
         self.h = height
         self.time = 0.0
         self.scale = 10.0
+        self.screen_w = get_screen_width()
 
         self.camera = Camera3D()
         self.camera.position = Vector3(10.0, 10.0, 10.0)
@@ -111,8 +112,8 @@ class Window:
         Args:
             filepath: Path to the map definition file.
         """
-        self.data = parse_map(filepath)
-        paths = assign_paths(self.data)
+        self.data = MapParser().parse_map(filepath)
+        paths = PathFinder(self.data).assign_paths()
         self.sim = Simulation(self.data, paths)
         self.turns = self.sim.run()
         self._build_history()
@@ -318,17 +319,6 @@ class Window:
             if self.anim_turn >= 0 and self.anim_progress < 1.0:
                 self.anim_progress = 1.0
 
-    def _go_back_turn(self) -> None:
-        """Step back one simulation turn."""
-        if self.anim_turn >= 0:
-            self.anim_turn -= 1
-            self.anim_progress = 0.0
-            self.all_finished = False
-            self._apply_state_to_visuals(
-                self.history[self.anim_turn + 1],
-                self.history[self.anim_turn + 2],
-            )
-
     def update(self, dt: float) -> None:
         """Update the window state for the current frame.
 
@@ -491,7 +481,15 @@ class Window:
         elif self.anim_turn < 0:
             turn_text = "Ready"
         draw_text(turn_text, 15, 10, 25, WHITE)
-        draw_text("SPACE BAR: PLAY / PAUSE", 20, self.h - 50, 15, WHITE)
+        draw_text("SPACE BAR: PLAY / PAUSE", self.screen_w // 6, 10, 25, WHITE)
+        draw_text(
+            "F KEY: TOGGLE FULLSCREEN", (self.screen_w // 6) + 400, 10, 25,
+            WHITE
+        )
+        draw_text(
+            "Esc Key: Exit", (self.screen_w // 6) + 800, 10, 25,
+            WHITE
+        )
 
         if is_key_pressed(KeyboardKey.KEY_SPACE):
             self.playing = not self.playing
@@ -503,6 +501,8 @@ class Window:
                 self.playing = True
 
     def cleanup(self) -> None:
-        """Release GPU resources allocated by the window."""
+        """Release GPU and Memories resources allocated by the window."""
         unload_model(self.water_model)
+        unload_model(self.hub)
+        unload_model(self.drone)
         unload_shader(self.water_shader)

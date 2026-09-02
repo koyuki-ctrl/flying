@@ -1,7 +1,8 @@
 """Map file parser for the FLY-ing drone simulation.
 
-Provides functions to read and validate map definition files,
-transforming textual descriptions into structured MapData objects.
+Provides a `MapParser` class that reads and validates map definition
+files, transforming textual descriptions into structured MapData
+objects.
 """
 
 from __future__ import annotations
@@ -18,235 +19,304 @@ class ParseError(Exception):
     pass
 
 
-def _parse_options(options_str: Optional[str]) -> dict[str, str]:
-    """Parse a bracketed options string into a key-value dictionary.
+class MapParser:
+    """Parses a single map definition file into a `MapData` object.
 
-    Args:
-        options_str: Raw string like "zone=restricted max_drones=3",
-            or None if no options are present.
+    A `MapParser` instance owns all state needed to validate a map
+    while it is being read: which hub names, coordinates, and
+    connections have already been seen, plus the running count of
+    start/end hubs. Create one instance per file parsed.
 
-    Returns:
-        A dictionary of parsed option keys and values.
-
-    Raises:
-        ParseError: If an option lacks an '=' separator or a key is duplicated.
+    Attributes:
+        data: The `MapData` being built up as the file is read.
+        seen_hubs: Names of hubs already defined, for duplicate checks.
+        seen_connections: Canonical keys of connections already defined.
+        seen_coords: (x, y) coordinates already used by a hub.
+        start_count: Number of `start_hub:` lines seen so far.
+        end_count: Number of `end_hub:` lines seen so far.
     """
-    opts: dict[str, str] = {}
-    if not options_str:
+
+    def __init__(self) -> None:
+        """Initialize a fresh parser with empty tracking state."""
+        self.data: MapData = MapData()
+        self.seen_hubs: set[str] = set()
+        self.seen_connections: set[tuple[str, ...]] = set()
+        self.seen_coords: set[tuple[int, int]] = set()
+        self.start_count = 0
+        self.end_count = 0
+
+    def parse_map(self, filepath: str) -> MapData:
+        """Parse a complete map file and return a validated MapData object.
+
+        Reads the file line by line, extracting drone count, hub
+        definitions, and connection definitions. Performs validation
+        for duplicates, coordinate overlaps, missing references, and
+        required fields.
+
+        Args:
+            filepath: Path to the map definition file.
+
+        Returns:
+            A populated and validated MapData instance.
+
+        Raises:
+            FileNotFoundError: If the specified file does not exist.
+            ParseError: If the file contains syntax errors, duplicates,
+                missing required fields, or logical inconsistencies.
+        """
+        path = Path(filepath)
+        if not path.exists():
+            raise FileNotFoundError(f"File not found: {filepath}")
+
+        with open(path, "r", encoding="utf-8") as f:
+            for line_no, raw_line in enumerate(f, start=1):
+                line = raw_line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                self._parse_line(line, line_no)
+
+        if self.data.nb_drones == 0:
+            raise ParseError("nb_drones must be defined and positive")
+        if self.start_count != 1:
+            raise ParseError("Exactly one start_hub required")
+        if self.end_count != 1:
+            raise ParseError("Exactly one end_hub required")
+
+        return self.data
+
+    def _parse_line(self, line: str, line_no: int) -> None:
+        """Dispatch a single non-blank, non-comment line to its handler.
+
+        Args:
+            line: The stripped line text.
+            line_no: The line number, for error reporting.
+
+        Raises:
+            ParseError: If the line does not match any known directive.
+        """
+        if line.startswith("nb_drones:"):
+            self._parse_nb_drones(line, line_no)
+        elif line.startswith(("start_hub:", "end_hub:", "hub:")):
+            self._register_hub(line, line_no)
+        elif line.startswith("connection:"):
+            self._register_connection(line, line_no)
+        else:
+            raise ParseError(f"Line {line_no}: Unknown directive")
+
+    def _parse_nb_drones(self, line: str, line_no: int) -> None:
+        """Parse an `nb_drones:` line and store it on `self.data`.
+
+        Args:
+            line: The raw text line from the map file.
+            line_no: The line number for error reporting.
+
+        Raises:
+            ParseError: If the value is missing or not a positive integer.
+        """
+        try:
+            self.data.nb_drones = int(line.split(":", 1)[1].strip())
+            if self.data.nb_drones < 1:
+                raise ValueError
+        except (IndexError, ValueError) as exc:
+            raise ParseError(f"Line {line_no}: Invalid nb_drones") from exc
+
+    def _register_hub(self, line: str, line_no: int) -> None:
+        """Parse a hub line, validate it against seen state, and store it.
+
+        Args:
+            line: The raw text line from the map file.
+            line_no: The line number for error reporting.
+
+        Raises:
+            ParseError: If the hub name or coordinates are duplicates.
+        """
+        hub = self._parse_hub(line, line_no)
+        if hub.name in self.seen_hubs:
+            raise ParseError(f"Line {line_no}: Duplicate hub name: {hub.name}")
+        self.seen_hubs.add(hub.name)
+
+        coord = (hub.x, hub.y)
+        if coord in self.seen_coords:
+            raise ParseError(
+                f"Line {line_no}: Duplicate hub coordinates "
+                f"({hub.x}, {hub.y}): "
+                f"'{hub.name}' overlaps with another hub"
+            )
+        self.seen_coords.add(coord)
+        self.data.hubs[hub.name] = hub
+
+        if hub.hub_type == HubType.START:
+            self.start_count += 1
+            self.data.start_hub = hub.name
+        elif hub.hub_type == HubType.END:
+            self.end_count += 1
+            self.data.end_hub = hub.name
+
+    def _register_connection(self, line: str, line_no: int) -> None:
+        """Parse a connection line, validate it, and store it.
+
+        Args:
+            line: The raw text line from the map file.
+            line_no: The line number for error reporting.
+
+        Raises:
+            ParseError: If the connection is a duplicate or references
+                an undefined hub.
+        """
+        conn = self._parse_connection(line, line_no)
+        if conn.key() in self.seen_connections:
+            raise ParseError(
+                f"Line {line_no}: "
+                f"Duplicate connection: {conn.hub1}-{conn.hub2}"
+            )
+        if conn.hub1 not in self.seen_hubs or conn.hub2 not in self.seen_hubs:
+            raise ParseError(
+                f"Line {line_no}: Connection references unknown hub"
+            )
+        self.seen_connections.add(conn.key())
+        self.data.connections.append(conn)
+        self.data.neighbors.setdefault(conn.hub1, set()).add(conn.hub2)
+        self.data.neighbors.setdefault(conn.hub2, set()).add(conn.hub1)
+
+    @staticmethod
+    def _parse_options(options_str: Optional[str]) -> dict[str, str]:
+        """Parse a bracketed options string into a key-value dictionary.
+
+        Args:
+            options_str: Raw string like "zone=restricted max_drones=3",
+                or None if no options are present.
+
+        Returns:
+            A dictionary of parsed option keys and values.
+
+        Raises:
+            ParseError: If an option lacks an '=' separator or a key is
+                duplicated.
+        """
+        opts: dict[str, str] = {}
+        if not options_str:
+            return opts
+        for item in options_str.split():
+            if "=" not in item:
+                raise ParseError(f"Invalid option format: {item}")
+            key, value = item.split("=", 1)
+            if key in opts:
+                raise ParseError(
+                    "Duplicate metadata key "
+                    f"'{key}' in hub options")
+            opts[key] = value
         return opts
-    for item in options_str.split():
-        if "=" not in item:
-            raise ParseError(f"Invalid option format: {item}")
-        key, value = item.split("=", 1)
-        if key in opts:
+
+    @classmethod
+    def _parse_hub(cls, line: str, line_no: int) -> Hub:
+        """Parse a single hub definition line into a Hub object.
+
+        Args:
+            line: The raw text line from the map file.
+            line_no: The line number for error reporting.
+
+        Returns:
+            A fully constructed Hub instance.
+
+        Raises:
+            ParseError: If the line format is invalid, coordinates are
+                malformed, the hub name contains a dash, or options are
+                invalid.
+        """
+        parts = line.split(":", 1)
+        if len(parts) != 2:
+            raise ParseError(f"Line {line_no}: Invalid hub format")
+
+        raw = parts[1].strip()
+        match = re.match(
+            r"^(\S+)\s+(-?\d+)\s+(-?\d+)(?:\s+\[(.*?)\])?$", raw
+        )
+        if not match:
+            raise ParseError(f"Line {line_no}: Invalid hub syntax: {raw}")
+
+        name, x_str, y_str, opts_raw = match.groups()
+        x = int(x_str)
+        y = int(y_str)
+
+        if "-" in name:
             raise ParseError(
-                "Duplicate metadata key "
-                f"'{key}' in hub options")
-        opts[key] = value
-    return opts
+                f"Line {line_no}: Hub name cannot contain dash: {name}")
 
+        hub_type = HubType.HUB
+        if line.startswith("start_hub:"):
+            hub_type = HubType.START
+        elif line.startswith("end_hub:"):
+            hub_type = HubType.END
 
-def _parse_hub(line: str, line_no: int) -> Hub:
-    """Parse a single hub definition line into a Hub object.
+        opts = cls._parse_options(opts_raw)
 
-    Args:
-        line: The raw text line from the map file.
-        line_no: The line number for error reporting.
-
-    Returns:
-        A fully constructed Hub instance.
-
-    Raises:
-        ParseError: If the line format is invalid, coordinates are malformed,
-            the hub name contains a dash, or options are invalid.
-    """
-    parts = line.split(":", 1)
-    if len(parts) != 2:
-        raise ParseError(f"Line {line_no}: Invalid hub format")
-
-    raw = parts[1].strip()
-    match = re.match(
-        r"^(\S+)\s+(-?\d+)\s+(-?\d+)(?:\s+\[(.*?)\])?$", raw
-    )
-    if not match:
-        raise ParseError(f"Line {line_no}: Invalid hub syntax: {raw}")
-
-    name, x_str, y_str, opts_raw = match.groups()
-    x = int(x_str)
-    y = int(y_str)
-
-    if "-" in name:
-        raise ParseError(
-            f"Line {line_no}: Hub name cannot contain dash: {name}")
-
-    hub_type = HubType.HUB
-    if line.startswith("start_hub:"):
-        hub_type = HubType.START
-    elif line.startswith("end_hub:"):
-        hub_type = HubType.END
-
-    opts = _parse_options(opts_raw)
-
-    zone_str = opts.get("zone", "normal")
-    try:
-        zone_type = ZoneType(zone_str)
-    except ValueError as exc:
-        raise ParseError(
-            f"Line {line_no}: Invalid zone type: {zone_str}"
-        ) from exc
-
-    color = opts.get("color")
-    if color == "none":
-        color = None
-
-    max_drones = 1
-    if "max_drones" in opts:
+        zone_str = opts.get("zone", "normal")
         try:
-            max_drones = int(opts["max_drones"])
-            if max_drones < 1:
-                raise ValueError
+            zone_type = ZoneType(zone_str)
         except ValueError as exc:
             raise ParseError(
-                f"Line {line_no}: max_drones must be a positive integer"
+                f"Line {line_no}: Invalid zone type: {zone_str}"
             ) from exc
 
-    return Hub(
-        name=name, x=x, y=y, hub_type=hub_type,
-        zone_type=zone_type, color=color, max_drones=max_drones,
-    )
+        color = opts.get("color")
+        if color == "none":
+            color = None
 
+        max_drones = 1
+        if "max_drones" in opts:
+            try:
+                max_drones = int(opts["max_drones"])
+                if max_drones < 1:
+                    raise ValueError
+            except ValueError as exc:
+                raise ParseError(
+                    f"Line {line_no}: max_drones must be a positive integer"
+                ) from exc
 
-def _parse_connection(line: str, line_no: int) -> Connection:
-    """Parse a single connection definition line into a Connection object.
+        return Hub(
+            name=name, x=x, y=y, hub_type=hub_type,
+            zone_type=zone_type, color=color, max_drones=max_drones,
+        )
 
-    Args:
-        line: The raw text line from the map file.
-        line_no: The line number for error reporting.
+    @classmethod
+    def _parse_connection(cls, line: str, line_no: int) -> Connection:
+        """Parse a single connection definition line into a Connection object.
 
-    Returns:
-        A fully constructed Connection instance.
+        Args:
+            line: The raw text line from the map file.
+            line_no: The line number for error reporting.
 
-    Raises:
-        ParseError: If the syntax is invalid or options are malformed.
-    """
-    parts = line.split(":", 1)
-    if len(parts) != 2:
-        raise ParseError(f"Line {line_no}: Invalid connection format")
+        Returns:
+            A fully constructed Connection instance.
 
-    raw = parts[1].strip()
-    match = re.match(r"^(\S+)-(\S+)(?:\s+\[(.*?)\])?$", raw)
-    if not match:
-        raise ParseError(f"Line {line_no}: Invalid connection syntax: {raw}")
+        Raises:
+            ParseError: If the syntax is invalid or options are malformed.
+        """
+        parts = line.split(":", 1)
+        if len(parts) != 2:
+            raise ParseError(f"Line {line_no}: Invalid connection format")
 
-    hub1, hub2, opts_raw = match.groups()
-    opts = _parse_options(opts_raw)
-
-    max_link_capacity = 1
-    if "max_link_capacity" in opts:
-        try:
-            max_link_capacity = int(opts["max_link_capacity"])
-            if max_link_capacity < 1:
-                raise ValueError
-        except ValueError as exc:
+        raw = parts[1].strip()
+        match = re.match(r"^(\S+)-(\S+)(?:\s+\[(.*?)\])?$", raw)
+        if not match:
             raise ParseError(
-                f"Line {line_no}: max_link_capacity must be a positive integer"
-            ) from exc
+                f"Line {line_no}: Invalid connection syntax: {raw}")
 
-    return Connection(
-        hub1=hub1, hub2=hub2, max_link_capacity=max_link_capacity
-    )
+        hub1, hub2, opts_raw = match.groups()
+        opts = cls._parse_options(opts_raw)
 
+        max_link_capacity = 1
+        if "max_link_capacity" in opts:
+            try:
+                max_link_capacity = int(opts["max_link_capacity"])
+                if max_link_capacity < 1:
+                    raise ValueError
+            except ValueError as exc:
+                raise ParseError(
+                    f"Line {line_no}: "
+                    "max_link_capacity must be a positive integer"
+                ) from exc
 
-def parse_map(filepath: str) -> MapData:
-    """Parse a complete map file and return a validated MapData object.
-
-    Reads the file line by line, extracting drone count, hub definitions,
-    and connection definitions. Performs validation for duplicates,
-    coordinate overlaps, missing references, and required fields.
-
-    Args:
-        filepath: Path to the map definition file.
-
-    Returns:
-        A populated and validated MapData instance.
-
-    Raises:
-        FileNotFoundError: If the specified file does not exist.
-        ParseError: If the file contains syntax errors, duplicates,
-            missing required fields, or logical inconsistencies.
-    """
-    path = Path(filepath)
-    if not path.exists():
-        raise FileNotFoundError(f"File not found: {filepath}")
-
-    data = MapData()
-    seen_hubs: set[str] = set()
-    seen_connections: set[tuple[str, ...]] = set()
-    seen_coords: set[tuple[int, int]] = set()
-    start_count = 0
-    end_count = 0
-
-    with open(path, "r", encoding="utf-8") as f:
-        for line_no, raw_line in enumerate(f, start=1):
-            line = raw_line.strip()
-            if not line or line.startswith("#"):
-                continue
-
-            if line.startswith("nb_drones:"):
-                try:
-                    data.nb_drones = int(line.split(":", 1)[1].strip())
-                    if data.nb_drones < 1:
-                        raise ValueError
-                except (IndexError, ValueError) as exc:
-                    raise ParseError(
-                        f"Line {line_no}: Invalid nb_drones") from exc
-
-            elif line.startswith(("start_hub:", "end_hub:", "hub:")):
-                hub = _parse_hub(line, line_no)
-                if hub.name in seen_hubs:
-                    raise ParseError(
-                        f"Line {line_no}: Duplicate hub name: {hub.name}")
-                seen_hubs.add(hub.name)
-                coord = (hub.x, hub.y)
-                if coord in seen_coords:
-                    raise ParseError(
-                        f"Line {line_no}: Duplicate hub coordinates "
-                        f"({hub.x}, {hub.y}): " +
-                        f"'{hub.name}' overlaps with another hub"
-                    )
-                seen_coords.add(coord)
-                data.hubs[hub.name] = hub
-
-                if hub.hub_type == HubType.START:
-                    start_count += 1
-                    data.start_hub = hub.name
-                elif hub.hub_type == HubType.END:
-                    end_count += 1
-                    data.end_hub = hub.name
-
-            elif line.startswith("connection:"):
-                conn = _parse_connection(line, line_no)
-                if conn.key() in seen_connections:
-                    raise ParseError(
-                        f"Line {line_no}: " +
-                        f"Duplicate connection: {conn.hub1}-{conn.hub2}"
-                    )
-                if conn.hub1 not in seen_hubs or conn.hub2 not in seen_hubs:
-                    raise ParseError(
-                        f"Line {line_no}: Connection references unknown hub"
-                    )
-                seen_connections.add(conn.key())
-                data.connections.append(conn)
-                data.neighbors.setdefault(conn.hub1, set()).add(conn.hub2)
-                data.neighbors.setdefault(conn.hub2, set()).add(conn.hub1)
-            else:
-                raise ParseError(f"Line {line_no}: Unknown directive")
-
-    if data.nb_drones == 0:
-        raise ParseError("nb_drones must be defined and positive")
-    if start_count != 1:
-        raise ParseError("Exactly one start_hub required")
-    if end_count != 1:
-        raise ParseError("Exactly one end_hub required")
-
-    return data
+        return Connection(
+            hub1=hub1, hub2=hub2, max_link_capacity=max_link_capacity
+        )

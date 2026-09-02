@@ -38,13 +38,13 @@ make freeze
 ## Algorithm
 - **Pathfinding**: Dijkstra with zone-cost weighting and greedy load-balancing penalties so drones spread across multiple paths.
 - **Complexity**:
-	- Single Dijkstra call: O((V + E) · log V)
-	- V = number of hubs (vertices)
-	- E = number of connections (edges)
-	- Global assignment (assign_paths()): O((V + E) · log V + D · V)
-	- D = number of drones
-	- The algorithm builds up to 6 diverse paths (constant factor) and simulates each candidate to evaluate congestion, making the overall complexity linear in   the number of drones and log-linear in the graph size.
-	- Space complexity: O(D · V) for storing all drone paths.
+	1. Single Dijkstra call: O((V + E) · log V)
+	2. V = number of hubs (vertices)
+	3. E = number of connections (edges)
+	4. Global assignment (assign_paths()): O((V + E) · log V + D · V)
+	5. D = number of drones
+	6. The algorithm builds up to 6 diverse paths (constant factor) and simulates each candidate to evaluate congestion, making the overall complexity linear in   the number of drones and log-linear in the graph size.
+	7. Space complexity: O(D · V) for storing all drone paths.
 - **Simulation**: Discrete turn-based engine. Each turn:
   1. Drones in transit (restricted zones) arrive at their destination.
   2. All idle drones attempt to move simultaneously.
@@ -56,6 +56,8 @@ make freeze
 - 3D scene with animated water shader, cel-shaded hubs, and drone models.
 - Click a hub to inspect its properties.
 - Use **Space** to play/pause the simulation.
+- Use **Esc** to quit program
+- Use **f Key** to toggle fullscreen
 
 ## Resources
 - [Dijkstra's shortest-path algorithm](https://www.youtube.com/watch?v=bZkzH5x0SKU&t=83s)

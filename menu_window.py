@@ -9,10 +9,6 @@ import math
 import pyray as rl
 
 
-MENU = 0
-GAME = 1
-
-
 class MainMenu:
     """Main menu scene rendered before the drone simulation starts.
 
@@ -90,18 +86,27 @@ class MainMenu:
         )
         rl.end_mode_3d()
 
+        screen_w = rl.get_screen_width()
+        screen_h = rl.get_screen_height()
+
         title = "Flying"
         title_size = 120
         tw = rl.measure_text(title, title_size)
-        rl.draw_text(title, self.w // 2 - tw // 2, 150, title_size, rl.GOLD)
+        rl.draw_text(
+            title,
+            screen_w // 2 - tw // 2,
+            screen_h // 3 - title_size // 2,
+            title_size,
+            rl.GOLD
+        )
 
         tw = rl.measure_text(self.press_text, self.press_size)
         alpha = int(180 + 75 * math.sin(self.time * 3.0))
         press_color = rl.Color(255, 255, 255, alpha)
         rl.draw_text(
             self.press_text,
-            self.w // 2 - tw // 2,
-            650,
+            screen_w // 2 - tw // 2,
+            int(screen_h * 0.8),
             self.press_size,
             press_color
         )

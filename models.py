@@ -10,6 +10,20 @@ from enum import Enum
 from typing import Optional
 
 
+class SceneModel(Enum):
+    """Enumeration of the top-level scenes in the FLY-ing program.
+
+    Identifies which screen is currently active: the main menu shown
+    on startup, or the 3D drone simulation itself.
+    """
+
+    MENU = 0
+    """The main menu scene, shown before the simulation starts."""
+
+    GAME = 1
+    """The 3D simulation scene, showing the map and drone playback."""
+
+
 class ZoneType(Enum):
     """Enumeration of possible zone types for a hub.
 

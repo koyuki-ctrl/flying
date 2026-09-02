@@ -7,10 +7,16 @@ read maps with arguments.
 
 from __future__ import annotations
 import sys
-import pyray as rl
-from raylib import LOG_NONE
+from pyray import (
+    set_trace_log_level, init_window, set_target_fps, toggle_fullscreen,
+    load_texture, window_should_close, is_key_pressed, get_frame_time,
+    begin_drawing, end_drawing, clear_background, draw_texture,
+    begin_mode_3d, end_mode_3d, close_window, BLANK, WHITE,
+)
+from raylib import LOG_NONE, KEY_F
 from window import Window
-from menu_window import MainMenu, MENU, GAME
+from menu_window import MainMenu
+from models import SceneModel
 
 
 def main() -> int:
@@ -28,58 +34,61 @@ def main() -> int:
     """
     w, h = 1200, 800
 
-    rl.set_trace_log_level(LOG_NONE)
-    rl.init_window(w, h, "FLYING")
-    rl.set_target_fps(60)
+    set_trace_log_level(LOG_NONE)
+    init_window(w, h, "FLYING")
+    set_target_fps(60)
+    toggle_fullscreen()
 
-    scene = MENU
+    scene = SceneModel.MENU.value
     menu = MainMenu(w, h)
     game: Window | None = None
-    sky = rl.load_texture("sky.jpg")
+    sky = load_texture("sky.jpg")
     args = sys.argv[1:]
     if args:
         map_file = args[0]
     else:
         map_file = "maps/easy/01_linear_path.txt"
 
-    while not rl.window_should_close():
-        if scene == MENU:
+    while not window_should_close():
+        if is_key_pressed(KEY_F):
+            toggle_fullscreen()
+        if scene == SceneModel.MENU.value:
             action = menu.update()
             if action == "start":
                 game = Window(w, h)
                 game.load_map(map_file)
-                scene = GAME
+                scene = SceneModel.GAME.value
             elif action == "quit":
                 break
 
-            rl.begin_drawing()
+            begin_drawing()
             menu.draw()
-            rl.end_drawing()
+            end_drawing()
 
-        elif scene == GAME:
-            dt = rl.get_frame_time()
+        elif scene == SceneModel.GAME.value:
+            dt = get_frame_time()
             if game:
                 game.update(dt)
 
-            rl.begin_drawing()
-            rl.clear_background(rl.BLANK)
-            rl.draw_texture(sky, 0, 0, rl.WHITE)
+            begin_drawing()
+            clear_background(BLANK)
+            draw_texture(sky, 0, 0, WHITE)
 
             if game:
-                rl.begin_mode_3d(game.camera)
+                begin_mode_3d(game.camera)
                 game.draw()
-                rl.end_mode_3d()
+                end_mode_3d()
                 game.draw_drone_labels()
                 game.draw_panel()
                 game.draw_command()
 
-            rl.end_drawing()
+            end_drawing()
 
     if menu:
         menu.cleanup()
     if game:
         game.cleanup()
-    rl.close_window()
+    close_window()
     return 0
 
 
