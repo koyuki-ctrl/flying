@@ -87,6 +87,10 @@ class MapParser:
     def _parse_line(self, line: str, line_no: int) -> None:
         """Dispatch a single non-blank, non-comment line to its handler.
 
+        The keyword (part before the first `:`) is matched after
+        stripping surrounding whitespace, so both `nb_drones: 2` and
+        `nb_drones : 2` are accepted.
+
         Args:
             line: The stripped line text.
             line_no: The line number, for error reporting.
@@ -94,43 +98,51 @@ class MapParser:
         Raises:
             ParseError: If the line does not match any known directive.
         """
-        if line.startswith("nb_drones:"):
-            self._parse_nb_drones(line, line_no)
-        elif line.startswith(("start_hub:", "end_hub:", "hub:")):
-            self._register_hub(line, line_no)
-        elif line.startswith("connection:"):
-            self._register_connection(line, line_no)
+        if ":" not in line:
+            raise ParseError(f"Line {line_no}: Unknown directive")
+
+        keyword, _, rest = line.partition(":")
+        keyword = keyword.strip()
+
+        if keyword == "nb_drones":
+            self._parse_nb_drones(rest, line_no)
+        elif keyword in ("start_hub", "end_hub", "hub"):
+            self._register_hub(keyword, rest, line_no)
+        elif keyword == "connection":
+            self._register_connection(rest, line_no)
         else:
             raise ParseError(f"Line {line_no}: Unknown directive")
 
-    def _parse_nb_drones(self, line: str, line_no: int) -> None:
-        """Parse an `nb_drones:` line and store it on `self.data`.
+    def _parse_nb_drones(self, rest: str, line_no: int) -> None:
+        """Parse the value portion of an `nb_drones:` line.
 
         Args:
-            line: The raw text line from the map file.
+            rest: The raw text following the `nb_drones` keyword's colon.
             line_no: The line number for error reporting.
 
         Raises:
             ParseError: If the value is missing or not a positive integer.
         """
         try:
-            self.data.nb_drones = int(line.split(":", 1)[1].strip())
+            self.data.nb_drones = int(rest.strip())
             if self.data.nb_drones < 1:
                 raise ValueError
-        except (IndexError, ValueError) as exc:
+        except ValueError as exc:
             raise ParseError(f"Line {line_no}: Invalid nb_drones") from exc
 
-    def _register_hub(self, line: str, line_no: int) -> None:
+    def _register_hub(self, keyword: str, rest: str, line_no: int) -> None:
         """Parse a hub line, validate it against seen state, and store it.
 
         Args:
-            line: The raw text line from the map file.
+            keyword: The directive keyword (`start_hub`, `end_hub`, or `hub`),
+                already stripped of surrounding whitespace.
+            rest: The raw text following the keyword's colon.
             line_no: The line number for error reporting.
 
         Raises:
             ParseError: If the hub name or coordinates are duplicates.
         """
-        hub = self._parse_hub(line, line_no)
+        hub = self._parse_hub(keyword, rest, line_no)
         if hub.name in self.seen_hubs:
             raise ParseError(f"Line {line_no}: Duplicate hub name: {hub.name}")
         self.seen_hubs.add(hub.name)
@@ -152,18 +164,18 @@ class MapParser:
             self.end_count += 1
             self.data.end_hub = hub.name
 
-    def _register_connection(self, line: str, line_no: int) -> None:
+    def _register_connection(self, rest: str, line_no: int) -> None:
         """Parse a connection line, validate it, and store it.
 
         Args:
-            line: The raw text line from the map file.
+            rest: The raw text following the `connection` keyword's colon.
             line_no: The line number for error reporting.
 
         Raises:
             ParseError: If the connection is a duplicate or references
                 an undefined hub.
         """
-        conn = self._parse_connection(line, line_no)
+        conn = self._parse_connection(rest, line_no)
         if conn.key() in self.seen_connections:
             raise ParseError(
                 f"Line {line_no}: "
@@ -208,11 +220,14 @@ class MapParser:
         return opts
 
     @classmethod
-    def _parse_hub(cls, line: str, line_no: int) -> Hub:
+    def _parse_hub(cls, keyword: str, rest: str, line_no: int) -> Hub:
         """Parse a single hub definition line into a Hub object.
 
         Args:
-            line: The raw text line from the map file.
+            keyword: The directive keyword (`start_hub`, `end_hub`, or `hub`),
+                already stripped of surrounding whitespace, used to
+                determine the resulting hub's type.
+            rest: The raw text following the keyword's colon.
             line_no: The line number for error reporting.
 
         Returns:
@@ -223,11 +238,7 @@ class MapParser:
                 malformed, the hub name contains a dash, or options are
                 invalid.
         """
-        parts = line.split(":", 1)
-        if len(parts) != 2:
-            raise ParseError(f"Line {line_no}: Invalid hub format")
-
-        raw = parts[1].strip()
+        raw = rest.strip()
         match = re.match(
             r"^(\S+)\s+(-?\d+)\s+(-?\d+)(?:\s+\[(.*?)\])?$", raw
         )
@@ -242,11 +253,12 @@ class MapParser:
             raise ParseError(
                 f"Line {line_no}: Hub name cannot contain dash: {name}")
 
-        hub_type = HubType.HUB
-        if line.startswith("start_hub:"):
+        if keyword == "start_hub":
             hub_type = HubType.START
-        elif line.startswith("end_hub:"):
+        elif keyword == "end_hub":
             hub_type = HubType.END
+        else:
+            hub_type = HubType.HUB
 
         opts = cls._parse_options(opts_raw)
 
@@ -279,11 +291,11 @@ class MapParser:
         )
 
     @classmethod
-    def _parse_connection(cls, line: str, line_no: int) -> Connection:
+    def _parse_connection(cls, rest: str, line_no: int) -> Connection:
         """Parse a single connection definition line into a Connection object.
 
         Args:
-            line: The raw text line from the map file.
+            rest: The raw text following the `connection` keyword's colon.
             line_no: The line number for error reporting.
 
         Returns:
@@ -292,11 +304,7 @@ class MapParser:
         Raises:
             ParseError: If the syntax is invalid or options are malformed.
         """
-        parts = line.split(":", 1)
-        if len(parts) != 2:
-            raise ParseError(f"Line {line_no}: Invalid connection format")
-
-        raw = parts[1].strip()
+        raw = rest.strip()
         match = re.match(r"^(\S+)-(\S+)(?:\s+\[(.*?)\])?$", raw)
         if not match:
             raise ParseError(
