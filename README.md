@@ -58,10 +58,9 @@ make freeze
 - Use **Space** to play/pause the simulation.
 
 ## Resources
-- Dijkstra's shortest-path algorithm
-- Python `typing` module & `mypy` static analysis
-- PEP 257 docstring conventions
-- raylib / pyray for 3D rendering
+- [Dijkstra's shortest-path algorithm](https://www.youtube.com/watch?v=bZkzH5x0SKU&t=83s)
+- [raylib documentation for python3](https://electronstudio.github.io/raylib-python-cffi/)
+- [PEP 257 docstring conventions](https://peps.python.org/pep-0257/)
 
 ## AI Usage
 AI was used to scaffold the simulation engine architecture and ensure type safety. All pathfinding logic, capacity rules, turn-based mechanics, and visual integration were designed and verified manually.
