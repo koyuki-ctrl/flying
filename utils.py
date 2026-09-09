@@ -5,7 +5,12 @@ and small conversion utilities used across the application.
 """
 
 from __future__ import annotations
-from pyray import Color, color_from_hsv, get_time
+from pyray import Color
+from parse import MapParser
+from pathfinder import PathFinder
+from simulation import Simulation
+from models import MapData
+
 
 GROUND_COLOR_MAP = {
     "green":    (0.3, 0.7, 0.2),
@@ -46,31 +51,53 @@ DRONE_COLORS = [
 to drones for visual differentiation."""
 
 
-def to_byte(c: float) -> int:
-    """Convert a normalized color component to an 8-bit integer.
+class Utils:
+    """Utility class containing static helper methods and constants.
 
-    Values less than or equal to 1.0 are scaled by 255; values above 1.0
-    are truncated directly to integer.
-
-    Args:
-        c: A color component, typically in the range [0.0, 1.0].
-
-    Returns:
-        An integer in the range [0, 255].
+    This class groups frequently used functions for color conversion,
+    map loading, and animation helpers. All methods are static and
+    can be called without instantiating the class.
     """
-    if c <= 1.0:
-        return int(c * 255)
-    return int(c)
 
+    @staticmethod
+    def to_byte(c: float) -> int:
+        """Convert a normalized color component to an 8-bit integer.
 
-def get_rainbow_color(speed: float = 60.0) -> Color:
-    """Generate a continuously cycling rainbow color.
+        Values less than or equal to 1.0 are scaled by 255; values above 1.0
+        are truncated directly to integer.
 
-    Args:
-        speed: Hue rotation speed in degrees per second.
+        Args:
+            c: A color component, typically in the range [0.0, 1.0].
 
-    Returns:
-        A pyray Color with full saturation and value.
-    """
-    hue = (get_time() * speed) % 360
-    return color_from_hsv(hue, 1.0, 1.0)
+        Returns:
+            An integer in the range [0, 255].
+        """
+        if c <= 1.0:
+            return int(c * 255)
+        return int(c)
+
+    @staticmethod
+    def load_map(filepath: str) -> tuple[
+                MapData,
+                list[list[str]],
+                Simulation,
+                list[str]]:
+        """Load a map file and prepare the discrete simulation.
+
+        Parses the map, assigns paths to drones, runs the simulation,
+        builds the state history, and initializes visual drone objects.
+
+        Args:
+            filepath: Path to the map definition file.
+        """
+        parser = MapParser()
+        data = parser.parse_map(filepath)
+        finder = PathFinder(data)
+        paths = finder.assign_paths()
+        sim = Simulation(data, paths)
+        turns = sim.run(True)
+        print("")
+        for line in turns:
+            print(line)
+        print(f"\nTotal turns: {len(turns)}\n")
+        return (data, paths, sim, turns)

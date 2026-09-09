@@ -34,7 +34,7 @@ class PathFinder:
     """Extra cost added to a restricted hub each time a lane uses it,
     so later lanes are encouraged to route around it."""
 
-    MAX_LANES = 6
+    MAX_LANES = 2
     """Largest lane-pool size tried when assigning paths."""
 
     PRIORITY_BONUS = -0.1
@@ -96,11 +96,12 @@ class PathFinder:
         if hub_penalty is None:
             hub_penalty = {}
 
-        pq: list[tuple[float, str, list[str]]] = [(0.0, start, [start])]
+        priority_q: list[
+            tuple[float, str, list[str]]] = [(0.0, start, [start])]
         visited: set[str] = set()
 
-        while pq:
-            cost, current, path = heapq.heappop(pq)
+        while priority_q:
+            cost, current, path = heapq.heappop(priority_q)
             if current == end:
                 return path
 
@@ -109,8 +110,8 @@ class PathFinder:
             visited.add(current)
 
             for neighbor in self.data.neighbors.get(current, set()):
-                hub = self.data.hubs.get(neighbor)
-                if hub is None:
+                neighbors = self.data.hubs.get(neighbor)
+                if neighbors is None:
                     continue
 
                 zone_cost = self.get_zone_cost(neighbor)
@@ -120,14 +121,13 @@ class PathFinder:
                 penalty = hub_penalty.get(neighbor, 0)
                 priority_bonus = (
                     self.PRIORITY_BONUS
-                    if hub.zone_type == ZoneType.PRIORITY else 0.0
+                    if neighbors.zone_type == ZoneType.PRIORITY else 0.0
                 )
 
                 new_cost = cost + zone_cost + penalty + priority_bonus
                 heapq.heappush(
-                    pq, (new_cost, neighbor, path + [neighbor])
+                    priority_q, (new_cost, neighbor, path + [neighbor])
                 )
-
         return []
 
     def _build_lane_pool(self, size: int) -> list[list[str]]:
@@ -174,7 +174,7 @@ class PathFinder:
             hitting the turn limit).
         """
         sim = Simulation(self.data, candidate)
-        sim.run(verbose=False)
+        sim.run()
         return sim
 
     def assign_paths(self) -> list[list[str]]:

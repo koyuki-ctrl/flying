@@ -20,14 +20,13 @@ from pyray import (
     get_screen_width
 )
 from models import Hub
-from parse import MapParser
-from pathfinder import PathFinder
+from models import MapData
 from simulation import Simulation
-from utils import to_byte, GROUND_COLOR_MAP, DRONE_COLORS
+from utils import Utils, GROUND_COLOR_MAP, DRONE_COLORS
 
 
-class Window:
-    """Main 3D window handling rendering, camera, and simulation playback.
+class GameScene:
+    """Main 3D scene handling rendering, camera, and simulation playback.
 
     Loads map data, runs the discrete simulation, and animates drone
     movements between hubs in real time. Supports mouse-based camera
@@ -46,14 +45,20 @@ class Window:
         vdrones: Visual drone descriptors with positions, colors, and offsets.
     """
 
-    def __init__(self, width: int, height: int):
+    def __init__(
+            self, width: int, height: int,
+            data: MapData, paths: list[list[str]],
+            sim: Simulation, turns: list[str]):
         """Initialize the window, camera, shaders, and default map data.
 
         Args:
             width: Initial window width.
             height: Initial window height.
         """
-        self.data = MapParser().parse_map("maps/easy/01_linear_path.txt")
+        self.data = data
+        self.paths = paths
+        self.sim = sim
+        self.turns = turns
         self.w = width
         self.h = height
         self.time = 0.0
@@ -92,8 +97,6 @@ class Window:
 
         self.hub_local_bb = get_mesh_bounding_box(self.hub.meshes[0])
 
-        self.sim: Optional[Simulation] = None
-        self.turns: list[str] = []
         self.history: list[dict[str, tuple[str, str]]] = []
         self.anim_turn = -1
         self.anim_progress = 0.0
@@ -102,30 +105,8 @@ class Window:
         self.all_finished = False
 
         self.vdrones: list[dict[str, Any]] = []
-
-    def load_map(self, filepath: str) -> None:
-        """Load a map file and prepare the discrete simulation.
-
-        Parses the map, assigns paths to drones, runs the simulation,
-        builds the state history, and initializes visual drone objects.
-
-        Args:
-            filepath: Path to the map definition file.
-        """
-        self.data = MapParser().parse_map(filepath)
-        paths = PathFinder(self.data).assign_paths()
-        self.sim = Simulation(self.data, paths)
-        self.turns = self.sim.run()
         self._build_history()
         self._init_visual_drones()
-        self._print_raw_output()
-
-    def _print_raw_output(self) -> None:
-        """Print the raw simulation turn output to the console."""
-        print("")
-        for line in self.turns:
-            print(line)
-        print(f"Total turns: {len(self.turns)}\n")
 
     def _build_history(self) -> None:
         """Build the state history from simulation turns.
@@ -378,7 +359,10 @@ class Window:
             color = color_from_hsv(hue, 0.9, 1.0)
         else:
             r, g, b = GROUND_COLOR_MAP.get(map_color, (1.0, 1.0, 1.0))
-            color = Color(to_byte(r), to_byte(g), to_byte(b), 255)
+            color = Color(
+                Utils.to_byte(r),
+                Utils.to_byte(g),
+                Utils.to_byte(b), 255)
 
         draw_model(self.hub, pos, 0.6, WHITE)
         draw_plane(pos, Vector2(7, 5), color)

@@ -6,7 +6,12 @@ loads title, shaders, animations, camera.
 
 from __future__ import annotations
 import math
-import pyray as rl
+try:
+    import pyray as rl
+except ModuleNotFoundError as no_module:
+    print(no_module)
+except Exception as execption:
+    print(execption)
 
 
 class MainMenu:
