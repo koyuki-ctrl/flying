@@ -120,17 +120,17 @@ class App:
 
 
 if __name__ == "__main__":
-    try:
-        app = App()
-        app.take_map()
-        app.run(False)
-    except KeyboardInterrupt:
-        print("Program was interrupted")
-    except IsADirectoryError as directory_error:
-        print(directory_error)
-    except FileNotFoundError as not_found:
-        print(not_found)
-    except PermissionError as permission:
-        print(permission)
-    except Exception as exception:
-        print(exception)
+    # try:
+    app = App()
+    app.take_map()
+    app.run(False)
+    # except KeyboardInterrupt:
+    #     print("Program was interrupted")
+    # except IsADirectoryError as directory_error:
+    #     print(directory_error)
+    # except FileNotFoundError as not_found:
+    #     print(not_found)
+    # except PermissionError as permission:
+    #     print(permission)
+    # except Exception as exception:
+    #     print(exception)

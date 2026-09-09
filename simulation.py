@@ -47,8 +47,12 @@ class Simulation:
 
         self.zone_occupancy: dict[str, set[str]] = defaultdict(set)
         if data.start_hub:
-            for d in self.drones:
-                self.zone_occupancy[data.start_hub].add(d.name)
+            start_hub = data.hubs.get(data.start_hub)
+            if start_hub and len(self.drones) > start_hub.max_drones:
+                raise ValueError(
+                    f"Start hub '{data.start_hub}' capacity ({start_hub.max_drones}) "
+                    f"is less than number of drones ({len(self.drones)})"
+                )
 
         self.turns: list[str] = []
         self.finished = False
@@ -68,17 +72,12 @@ class Simulation:
     def _zone_capacity(self, hub_name: str) -> int:
         """Get the effective drone capacity for a hub.
 
-        Start and end hubs are treated as having unlimited capacity.
-
         Args:
             hub_name: Name of the hub to query.
 
         Returns:
-            The maximum number of drones allowed, or a very large number
-            for unlimited-capacity hubs.
+            The maximum number of drones allowed (max_drones), or 1 if not defined.
         """
-        if self.data.is_capacity_unlimited(hub_name):
-            return 999999
         hub = self.data.hubs.get(hub_name)
         return hub.max_drones if hub else 1
 
@@ -94,7 +93,7 @@ class Simulation:
         """
         return self.data.get_link_capacity(hub1, hub2)
 
-    def _occupacity(self, link_usage: dict[tuple[str, str], int]) -> None:
+    def _occupacity(self, link_usage: dict[tuple[str, str], int], turn: int) -> None:
         """Print a formatted summary of this turn's moves with occupancy info.
 
         Args:
@@ -102,6 +101,7 @@ class Simulation:
                 "Dn-hub" (a completed move/arrival) or "Dn-dep-arr"
                 (a move that started a multi-turn transit).
         """
+        print(f"\nTurn: {turn}")
         arrived_count: dict[str, int] = defaultdict(int)
         for d in self.drones:
             if d.state == "arrived" and d.current_zone:
@@ -115,11 +115,8 @@ class Simulation:
 
         print("Zones:")
         for zone, count in sorted(zone_counts.items()):
-            if self.data.is_capacity_unlimited(zone):
-                cap = "unlimited"
-            else:
-                hub = self.data.hubs.get(zone)
-                cap = hub.max_drones if hub else 1
+            hub = self.data.hubs.get(zone)
+            cap = hub.max_drones
             print(f"  {zone}: {count}/{cap} drones")
 
         print("Connections used:")
@@ -203,16 +200,15 @@ class Simulation:
                 if link_usage[lk] >= self._link_capacity(current, next_hub):
                     continue
 
-                if not self.data.is_capacity_unlimited(next_hub):
-                    occ = len(self.zone_occupancy.get(next_hub, set()))
-                    leaving = zone_departures.get(next_hub, 0)
-                    arriving = zone_arrivals.get(next_hub, 0)
-                    available = (
-                        self._zone_capacity(next_hub) -
-                        (occ - leaving + arriving)
-                    )
-                    if available <= 0:
-                        continue
+                occ = len(self.zone_occupancy.get(next_hub, set()))
+                leaving = zone_departures.get(next_hub, 0)
+                arriving = zone_arrivals.get(next_hub, 0)
+                available = (
+                    self._zone_capacity(next_hub)
+                    - (occ - leaving + arriving)
+                )
+                if available <= 0:
+                    continue
 
                 link_usage[lk] += 1
                 zone_departures[current] += 1
@@ -240,7 +236,7 @@ class Simulation:
             if moves:
                 self.turns.append(" ".join(moves))
                 if verbose:
-                    self._occupacity(moves, link_usage)
+                    self._occupacity(link_usage, turn_count)
 
             if all(d.state == "arrived" for d in self.drones):
                 self.finished = True

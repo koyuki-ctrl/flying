@@ -249,16 +249,3 @@ class MapData:
         if hub.zone_type == ZoneType.RESTRICTED:
             return 2
         return 1
-
-    def is_capacity_unlimited(self, hub_name: str) -> bool:
-        """Check whether a hub has unlimited drone capacity.
-
-        Start and end hubs are always treated as unlimited.
-
-        Args:
-            hub_name: Name of the hub to check.
-
-        Returns:
-            True if the hub is the start or end hub.
-        """
-        return hub_name == self.start_hub or hub_name == self.end_hub
