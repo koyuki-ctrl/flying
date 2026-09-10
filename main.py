@@ -130,7 +130,7 @@ if __name__ == "__main__":
     try:
         app = App()
         app.take_map()
-        app.run()
+        app.run(False)
     except KeyboardInterrupt:
         print("Program was interrupted")
     except IsADirectoryError as directory_error:
