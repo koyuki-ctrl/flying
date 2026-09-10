@@ -30,11 +30,11 @@ class PathFinder:
         data: The map data this pathfinder searches over.
     """
 
-    RESTRICTED_PENALTY_WEIGHT = 6.0
+    RESTRICTED_PENALTY_WEIGHT = 3.0
     """Extra cost added to a restricted hub each time a lane uses it,
     so later lanes are encouraged to route around it."""
 
-    MAX_LANES = 2
+    MAX_LANES = 6
     """Largest lane-pool size tried when assigning paths."""
 
     PRIORITY_BONUS = -0.1
@@ -158,8 +158,13 @@ class PathFinder:
             lanes.append(path)
             for hub_name in path[1:-1]:
                 hub = self.data.hubs.get(hub_name)
-                if hub is not None and hub.zone_type == ZoneType.RESTRICTED:
-                    hub_penalty[hub_name] += self.RESTRICTED_PENALTY_WEIGHT
+                if hub is None:
+                    continue
+                capacity = hub.max_drones or 1
+                weight = self.RESTRICTED_PENALTY_WEIGHT / capacity
+                if hub.zone_type == ZoneType.RESTRICTED:
+                    weight += self.RESTRICTED_PENALTY_WEIGHT
+                hub_penalty[hub_name] += weight
 
         return lanes
 
