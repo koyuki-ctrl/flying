@@ -83,7 +83,7 @@ class Hub:
     hub_type: HubType = HubType.HUB
     zone_type: ZoneType = ZoneType.NORMAL
     color: Optional[str] = None
-    max_drones: int = 1
+    max_drones: Optional[int] = None
 
     def __hash__(self) -> int:
         """Return a hash based on the hub name for use in sets and dicts."""

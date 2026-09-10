@@ -6,6 +6,7 @@ discrete simulation turns.
 """
 
 import math
+import random
 from typing import Optional, Any
 from pyray import (
     WHITE, Camera3D, Vector3, CameraProjection, load_model,
@@ -86,6 +87,14 @@ class GameScene:
 
         self.hub = load_model("hub.glb")
         self.drone = load_model("Drone.glb")
+
+        self.shark_pos = Vector3(0.0, -0.6, 0.0)
+        self.shark_dir = random.uniform(0.0, 2 * math.pi)
+        self.shark_speed = 4.0
+        self.shark_turn_speed = 1.8
+        self.shark_wander_timer = 0.0
+        self.shark_avoid_radius = 18.0
+        self.shark_bob_phase = random.uniform(0.0, 6.28)
 
         self.water_shader = load_shader("water.vert", "water.frag")
         self.loc_water_time = get_shader_location(self.water_shader, "time")

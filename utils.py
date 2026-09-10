@@ -95,7 +95,7 @@ class Utils:
         finder = PathFinder(data)
         paths = finder.assign_paths()
         sim = Simulation(data, paths)
-        turns = sim.run(True)
+        turns = sim.run()
         print("")
         for line in turns:
             print(line)

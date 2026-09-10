@@ -84,7 +84,7 @@ class App:
                     action = menu.update()
                     if action == "start":
                         game = GameScene(
-                            self.w, self.h, data, paths, sim, turns)
+                            self.w, self.h, data, paths, sim, turns,)
                         scene = SceneModel.GAME.value
                     elif action == "quit":
                         break
@@ -120,17 +120,24 @@ class App:
 
 
 if __name__ == "__main__":
-    # try:
-    app = App()
-    app.take_map()
-    app.run(False)
-    # except KeyboardInterrupt:
-    #     print("Program was interrupted")
-    # except IsADirectoryError as directory_error:
-    #     print(directory_error)
-    # except FileNotFoundError as not_found:
-    #     print(not_found)
-    # except PermissionError as permission:
-    #     print(permission)
-    # except Exception as exception:
-    #     print(exception)
+    print("")
+    print("███████╗██╗  ██╗   ██╗     ██╗███╗   ██╗ ██████╗")
+    print("██╔════╝██║  ╚██╗ ██╔╝     ██║████╗  ██║██╔════╝")
+    print("█████╗  ██║   ╚████╔╝█████╗██║██╔██╗ ██║██║  ███╗")
+    print("██╔══╝  ██║    ╚██╔╝ ╚════╝██║██║╚██╗██║██║   ██║")
+    print("██║     ███████╗██║        ██║██║ ╚████║╚██████╔╝")
+    print("╚═╝     ╚══════╝╚═╝        ╚═╝╚═╝  ╚═══╝ ╚═════╝")
+    try:
+        app = App()
+        app.take_map()
+        app.run()
+    except KeyboardInterrupt:
+        print("Program was interrupted")
+    except IsADirectoryError as directory_error:
+        print(directory_error)
+    except FileNotFoundError as not_found:
+        print(not_found)
+    except PermissionError as permission:
+        print(permission)
+    except Exception as exception:
+        print(exception)

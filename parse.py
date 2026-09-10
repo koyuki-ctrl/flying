@@ -36,6 +36,9 @@ class MapParser:
         end_count: Number of `end_hub:` lines seen so far.
     """
 
+    HUB_OPTIONS = {"color", "zone", "max_drones"}
+    CONNECTION_OPTIONS = {"max_link_capacity"}
+
     def __init__(self) -> None:
         """Initialize a fresh parser with empty tracking state."""
         self.data: MapData = MapData()
@@ -82,14 +85,17 @@ class MapParser:
         if self.end_count != 1:
             raise ParseError("Exactly one end_hub required")
 
+        for hub in self.data.hubs.values():
+            if hub.max_drones is None:
+                if hub.hub_type in (HubType.START, HubType.END):
+                    hub.max_drones = self.data.nb_drones
+                else:
+                    hub.max_drones = 1
+
         return self.data
 
     def _parse_line(self, line: str, line_no: int) -> None:
         """Dispatch a single non-blank, non-comment line to its handler.
-
-        The keyword (part before the first `:`) is matched after
-        stripping surrounding whitespace, so both `nb_drones: 2` and
-        `nb_drones : 2` are accepted.
 
         Args:
             line: The stripped line text.
@@ -98,18 +104,19 @@ class MapParser:
         Raises:
             ParseError: If the line does not match any known directive.
         """
-        if ":" not in line:
-            raise ParseError(f"Line {line_no}: Unknown directive")
-
-        keyword, _, rest = line.partition(":")
-        keyword = keyword.strip()
-
-        if keyword == "nb_drones":
-            self._parse_nb_drones(rest, line_no)
-        elif keyword in ("start_hub", "end_hub", "hub"):
-            self._register_hub(keyword, rest, line_no)
-        elif keyword == "connection":
-            self._register_connection(rest, line_no)
+        if line.startswith("nb_drones:"):
+            self._parse_nb_drones(line[len("nb_drones:"):], line_no)
+        elif line.startswith("start_hub:"):
+            self._register_hub(
+                "start_hub", line[len("start_hub:"):], line_no)
+        elif line.startswith("end_hub:"):
+            self._register_hub(
+                "end_hub", line[len("end_hub:"):], line_no)
+        elif line.startswith("hub:"):
+            self._register_hub(
+                "hub", line[len("hub:"):], line_no)
+        elif line.startswith("connection:"):
+            self._register_connection(line[len("connection:"):], line_no)
         else:
             raise ParseError(f"Line {line_no}: Unknown directive")
 
@@ -146,6 +153,15 @@ class MapParser:
         if hub.name in self.seen_hubs:
             raise ParseError(f"Line {line_no}: Duplicate hub name: {hub.name}")
         self.seen_hubs.add(hub.name)
+
+        if (
+                hub.hub_type in (HubType.START, HubType.END)
+                and hub.zone_type == ZoneType.BLOCKED
+        ):
+            raise ParseError(
+                f"Line {line_no}: {hub.hub_type.value} '{hub.name}' "
+                f"cannot be in a blocked zone"
+            )
 
         coord = (hub.x, hub.y)
         if coord in self.seen_coords:
@@ -191,19 +207,23 @@ class MapParser:
         self.data.neighbors.setdefault(conn.hub2, set()).add(conn.hub1)
 
     @staticmethod
-    def _parse_options(options_str: Optional[str]) -> dict[str, str]:
+    def _parse_options(
+        options_str: Optional[str],
+        allowed: set[str],
+    ) -> dict[str, str]:
         """Parse a bracketed options string into a key-value dictionary.
 
         Args:
             options_str: Raw string like "zone=restricted max_drones=3",
                 or None if no options are present.
+            allowed: Set of valid option keys. Any other key raises ParseError.
 
         Returns:
             A dictionary of parsed option keys and values.
 
         Raises:
-            ParseError: If an option lacks an '=' separator or a key is
-                duplicated.
+            ParseError: If an option lacks an '=' separator, a key is
+                duplicated, or a key is not in `allowed`.
         """
         opts: dict[str, str] = {}
         if not options_str:
@@ -212,6 +232,11 @@ class MapParser:
             if "=" not in item:
                 raise ParseError(f"Invalid option format: {item}")
             key, value = item.split("=", 1)
+            if key not in allowed:
+                raise ParseError(
+                    f"Unknown option '{key}' "
+                    f"(allowed: {', '.join(sorted(allowed))})"
+                )
             if key in opts:
                 raise ParseError(
                     "Duplicate metadata key "
@@ -260,7 +285,7 @@ class MapParser:
         else:
             hub_type = HubType.HUB
 
-        opts = cls._parse_options(opts_raw)
+        opts = cls._parse_options(opts_raw, cls.HUB_OPTIONS)
 
         zone_str = opts.get("zone", "normal")
         try:
@@ -274,7 +299,7 @@ class MapParser:
         if color == "none":
             color = None
 
-        max_drones = 1
+        max_drones = None
         if "max_drones" in opts:
             try:
                 max_drones = int(opts["max_drones"])
@@ -311,7 +336,7 @@ class MapParser:
                 f"Line {line_no}: Invalid connection syntax: {raw}")
 
         hub1, hub2, opts_raw = match.groups()
-        opts = cls._parse_options(opts_raw)
+        opts = cls._parse_options(opts_raw, cls.CONNECTION_OPTIONS)
 
         max_link_capacity = 1
         if "max_link_capacity" in opts:

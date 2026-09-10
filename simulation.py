@@ -42,20 +42,22 @@ class Simulation:
         """
         self.data = data
         self.drones: list[Drone] = []
+        self.turns: list[str] = []
+        self.finished = False
+        self.zone_occupancy: dict[str, set[str]] = defaultdict(set)
+
         for i, path in enumerate(paths, start=1):
             self.drones.append(Drone(drone_id=i, path=path))
 
-        self.zone_occupancy: dict[str, set[str]] = defaultdict(set)
         if data.start_hub:
-            start_hub = data.hubs.get(data.start_hub)
-            if start_hub and len(self.drones) > start_hub.max_drones:
+            start_cap = self._zone_capacity(data.start_hub)
+            if len(self.drones) > start_cap:
                 raise ValueError(
-                    f"Start hub '{data.start_hub}' capacity ({start_hub.max_drones}) "
+                    f"Start hub '{data.start_hub}' capacity ({start_cap}) "
                     f"is less than number of drones ({len(self.drones)})"
                 )
-
-        self.turns: list[str] = []
-        self.finished = False
+            for d in self.drones:
+                self.zone_occupancy[data.start_hub].add(d.name)
 
     def _link_key(self, a: str, b: str) -> tuple[str, str]:
         """Return a canonical ordered tuple for a link between two hubs.
@@ -76,10 +78,18 @@ class Simulation:
             hub_name: Name of the hub to query.
 
         Returns:
-            The maximum number of drones allowed (max_drones), or 1 if not defined.
+            The maximum number of drones allowed. If not specified:
+            - start/end hub: nb_drones
+            - intermediate hub: 1
         """
         hub = self.data.hubs.get(hub_name)
-        return hub.max_drones if hub else 1
+        if hub is None:
+            return 1
+        if hub.max_drones is not None:
+            return hub.max_drones
+        if hub_name == self.data.start_hub or hub_name == self.data.end_hub:
+            return len(self.drones)
+        return 1
 
     def _link_capacity(self, hub1: str, hub2: str) -> int:
         """Get the maximum number of drones allowed on a link per turn.
@@ -93,7 +103,9 @@ class Simulation:
         """
         return self.data.get_link_capacity(hub1, hub2)
 
-    def _occupacity(self, link_usage: dict[tuple[str, str], int], turn: int) -> None:
+    def _occupacity(
+            self, link_usage: dict[tuple[str, str], int],
+            turn: int) -> None:
         """Print a formatted summary of this turn's moves with occupancy info.
 
         Args:
@@ -115,8 +127,7 @@ class Simulation:
 
         print("Zones:")
         for zone, count in sorted(zone_counts.items()):
-            hub = self.data.hubs.get(zone)
-            cap = hub.max_drones
+            cap = self._zone_capacity(zone)
             print(f"  {zone}: {count}/{cap} drones")
 
         print("Connections used:")
